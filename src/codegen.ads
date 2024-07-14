@@ -1,8 +1,11 @@
-with Ada.Strings.Unbounded;
-with Ada.Containers.Vectors;
+with Ada.Strings.Unbounded.Hash;
 with Ada.Text_IO;
+with Ada.Strings.Unbounded;
 
 with Parsing;
+
+private with Ada.Containers.Vectors;
+private with Ada.Containers.Hashed_Maps;
 
 package Codegen is
    type Ada_Subprogram_Type is private;
@@ -21,7 +24,7 @@ private
    --  Type Declarations
    type Ada_Record_Member_Type is record
       Name : Ada.Strings.Unbounded.Unbounded_String;
-      Member_Type : Ada.Strings.Unbounded.Unbounded_String;
+      Type_Code : Ada.Strings.Unbounded.Unbounded_String;
    end record;
 
    package ARML is new Ada.Containers.Vectors
@@ -31,27 +34,33 @@ private
    type ATDK is (Builtin_Kind, Array_Kind, Struct_Kind, Dict_Kind);
    type Ada_Type_Declaration (Kind : ATDK := Builtin_Kind) is record
       Name : Ada.Strings.Unbounded.Unbounded_String;
+      --  Ada name of the DBus type
 
       case Kind is
          when Builtin_Kind =>
             null;
          when Array_Kind =>
-            Array_Element_Type : Ada.Strings.Unbounded.Unbounded_String;
+            Array_Element_Type_Code : Ada.Strings.Unbounded.Unbounded_String;
          when Struct_Kind =>
             Struct_Members : Ada_Record_Member_List;
          when Dict_Kind =>
-            Dict_Key_Type : Ada.Strings.Unbounded.Unbounded_String;
-            Dict_Element_Type : Ada.Strings.Unbounded.Unbounded_String;
+            Dict_Key_Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+            Dict_Element_Type_Code : Ada.Strings.Unbounded.Unbounded_String;
       end case;
    end record;
 
-   package ATDL is new Ada.Containers.Vectors (Positive, Ada_Type_Declaration);
-   subtype Ada_Type_Declaration_List is ATDL.Vector;
+   use type Ada.Strings.Unbounded.Unbounded_String;
+   package ATDM is new Ada.Containers.Hashed_Maps
+     (Key_Type => Ada.Strings.Unbounded.Unbounded_String,
+      Element_Type => Ada_Type_Declaration,
+      Hash => Ada.Strings.Unbounded.Hash,
+      Equivalent_Keys => "=");
+   subtype Ada_Type_Declaration_Map is ATDM.Map;
 
    --  Packages, Subprograms, Arguments
    type Ada_Argument_Type is record
       Name : Ada.Strings.Unbounded.Unbounded_String;
-      Argument_Type : Ada.Strings.Unbounded.Unbounded_String;
+      Type_Code : Ada.Strings.Unbounded.Unbounded_String;
       Direction : Ada.Strings.Unbounded.Unbounded_String;
    end record;
 
@@ -70,7 +79,7 @@ private
       Name : Ada.Strings.Unbounded.Unbounded_String;
       Node : Ada.Strings.Unbounded.Unbounded_String;
       Iface : Ada.Strings.Unbounded.Unbounded_String;
-      Type_Declarations : Ada_Type_Declaration_List;
+      Type_Declarations : Ada_Type_Declaration_Map;
       Subprograms : Ada_Subprogram_Type_List;
    end record;
 end Codegen;

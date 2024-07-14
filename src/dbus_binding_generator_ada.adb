@@ -19,7 +19,7 @@ with Schema.Validators;
 --  Local Codegen
 with Parsing;
 with Codegen;
-with Codegen.Specification;
+--  with Codegen.Specification;
 with Codegen.The_Body;
 
 --  Utils
@@ -177,7 +177,7 @@ begin
          Pkg : constant Codegen.Ada_Package_Type := Codegen.Create_Package
            (Node.Name, I);
       begin
-         Codegen.Specification.Print (Pkg, Ada.Text_IO.Standard_Output);
+--         Codegen.Specification.Print (Pkg, Ada.Text_IO.Standard_Output);
          Codegen.The_Body.Print (Pkg, Ada.Text_IO.Standard_Output);
       end;
    end loop;

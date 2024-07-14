@@ -6,48 +6,53 @@ with Shared; use Shared;
 
 package body Codegen is
    --  Generate Ada type declarations for an argument
-   function Generate_Ada_Type
-     (DType : String) return Ada_Type_Declaration_List;
-   function Generate_Ada_Type
-     (DType : String) return Ada_Type_Declaration_List
+   procedure Generate_Ada_Types
+     (Map : in out Ada_Type_Declaration_Map;
+      Type_Code : Ada.Strings.Unbounded.Unbounded_String);
+   procedure Generate_Ada_Types
+     (Map : in out Ada_Type_Declaration_Map;
+     Type_Code : Ada.Strings.Unbounded.Unbounded_String)
    is
       type Type_Category is (DBus_Array, DBus_Struct, DBus_Dict);
 
-      Type_First : constant Character := DType (DType'First);
-      Result : Ada_Type_Declaration_List;
+      Type_First : constant Character := String'(+Type_Code) (1);
 
       --  Produce declarations for complex types
       procedure Internal (T : Type_Category);
       procedure Internal (T : Type_Category) is
-         Interior : constant String := Get_Interior (DType);
-         Sanitised : constant String := Sanitise (Interior);
+         use Ada.Strings.Unbounded;
+
+         Interior_S : constant String := Get_Interior (+Type_Code);
+         Interior_UB : constant Unbounded_String := +Interior_S;
+
+         Ada_Type_Name : constant Ada.Strings.Unbounded.Unbounded_String :=
+            +Get_Ada_Type (+Type_Code);
       begin
          case T is
             when DBus_Array =>
-               Result.Append_Vector (Generate_Ada_Type (Interior));
+               Generate_Ada_Types (Map, Interior_UB);
 
                declare
                   Array_Decl : Ada_Type_Declaration (Array_Kind);
                begin
-                  Array_Decl.Name := +Sanitised;
-                  Array_Decl.Array_Element_Type := +Get_Ada_Type (Interior);
+                  Array_Decl.Name := Ada_Type_Name;
+                  Array_Decl.Array_Element_Type_Code := Interior_UB;
 
-                  Result.Append (Array_Decl);
+                  Map.Insert (Type_Code, Array_Decl);
                end;
             when DBus_Struct =>
                declare
                   I : Positive;
                   Struct_Decl : Ada_Type_Declaration (Struct_Kind);
                begin
-                  Struct_Decl.Name := +Sanitised;
+                  Struct_Decl.Name := Ada_Type_Name;
 
                   --  Ensure all types are declared
                   I := 1;
                   loop
                      begin
-                        Result.Append_Vector
-                          (Generate_Ada_Type
-                             (Get_Complete_Type (Interior, I)));
+                        Generate_Ada_Types
+                          (Map, +Get_Complete_Type (Interior_S, I));
                      exception
                         when No_More_Complete_Types => exit;
                      end;
@@ -62,11 +67,9 @@ package body Codegen is
                         Struct_Decl.Struct_Members.Append
                           (Ada_Record_Member_Type'
                            (Name =>
-                              +("m" &
+                              +("Member_" &
                               I'Image (I'Image'First + 1 .. I'Image'Last)),
-                           Member_Type =>
-                              +Get_Ada_Type
-                                 (Get_Complete_Type (Interior, I))));
+                           Type_Code => +Get_Complete_Type (Interior_S, I)));
                      exception
                         when No_More_Complete_Types => exit;
                      end;
@@ -74,55 +77,64 @@ package body Codegen is
                      I := I + 1;
                   end loop;
 
-                  Result.Append (Struct_Decl);
+                  Map.Insert (Type_Code, Struct_Decl);
                end;
             when DBus_Dict =>
                declare
-                  Key_Type : constant String :=
-                     Get_Complete_Type (Interior, 1);
-                  Value_Type : constant String :=
-                     Get_Complete_Type (Interior, 2);
+                  Key_Type : constant Unbounded_String :=
+                     +Get_Complete_Type (Interior_S, 1);
+                  Element_Type : constant Unbounded_String :=
+                     +Get_Complete_Type (Interior_S, 2);
+
                   Dict_Decl : Ada_Type_Declaration (Dict_Kind);
                begin
                   --  A dict key must be a basic type
-                  if not Is_Basic (Key_Type) then
+                  if not Is_Basic (+Key_Type) then
                      raise Program_Error with
-                        "Key " & Key_Type & " is a complex type";
+                        "Key " & (+Key_Type) & " is a complex type";
                   end if;
 
-                  Result.Append_Vector (Generate_Ada_Type (Key_Type));
-                  Result.Append_Vector (Generate_Ada_Type (Value_Type));
+                  Generate_Ada_Types (Map, Key_Type);
+                  Generate_Ada_Types (Map, Element_Type);
 
-                  Dict_Decl.Name := +Sanitised;
-                  Dict_Decl.Dict_Key_Type := +Get_Ada_Type (Key_Type);
-                  Dict_Decl.Dict_Element_Type := +Get_Ada_Type (Value_Type);
+                  Dict_Decl.Name := Ada_Type_Name;
+                  Dict_Decl.Dict_Key_Type_Code := Key_Type;
+                  Dict_Decl.Dict_Element_Type_Code := Element_Type;
 
-                  Result.Append (Dict_Decl);
+                  Map.Insert (Type_Code, Dict_Decl);
                end;
          end case;
       end Internal;
    begin
+      --  Avoid duplicate type declarations
+      if Map.Contains (Type_Code) then
+         return;
+      end if;
+
       --  Complex types need type definitions
+      --  Basic types get Builtin_Kind stubs
       case Type_First is
          --  Check for dicts
          when 'a' =>
-            if DType (DType'First + 1) = '{' then
+            if String'(+Type_Code) (2) = '{' then
                Internal (DBus_Dict);
             else
                Internal (DBus_Array);
             end if;
          when '(' =>
             Internal (DBus_Struct);
-         when others => null;
+         when others =>
+            Map.Insert
+              (Type_Code,
+               (Kind => Builtin_Kind,
+                Name => +Get_Ada_Type (+Type_Code)));
       end case;
-
-      return Result;
-   end Generate_Ada_Type;
+   end Generate_Ada_Types;
 
    --  Create an Ada argument for a DBus argument
    function Create_Argument (A : Argument_Type) return Ada_Argument_Type
    is (Name => A.Name,
-       Argument_Type => +Get_Ada_Type (+A.AType),
+       Type_Code => A.AType,
        Direction => A.Direction);
 
    --  Create a subprogram for a method
@@ -183,7 +195,7 @@ package body Codegen is
                   " : " &
                   (+SPA (I).Direction) &
                   " " &
-                  (+SPA (I).Argument_Type));
+                  (Get_Ada_Type (+SPA (I).Type_Code)));
 
                if I /= LI then
                   Put ("; ");
@@ -224,8 +236,7 @@ package body Codegen is
       -----------
       for M of I.Methods loop
          for A of M.Arguments loop
-            Pkg.Type_Declarations.Append_Vector
-              (Generate_Ada_Type (+A.AType));
+            Generate_Ada_Types (Pkg.Type_Declarations, A.AType);
          end loop;
       end loop;
 

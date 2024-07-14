@@ -22,9 +22,9 @@ package body Type_Checking is
    is (T (T'First) in 'y' | 'b' | 'n' | 'q' | 'i' | 'u' | 'x' | 't' | 'd'
       | 's' | 'o' | 'g' | 'h');
 
-   --------------
-   -- Sanitise --
-   --------------
+   --  Sanitise a type name to be suitable for Ada type names
+   --  Not exported
+   function Sanitise (T : String) return String;
    function Sanitise (T : String) return String
    is
       use Ada.Strings.Unbounded;
@@ -153,4 +153,43 @@ package body Type_Checking is
          when others => raise Program_Error;
       end case;
    end Get_Ada_Type;
+
+   -----------------------
+   -- Get_DBus_Ada_Type --
+   -----------------------
+   function Get_DBus_Ada_Type (T : String) return String
+   is
+      AType_First : constant Character := T (T'First);
+   begin
+      Validate_Type (T);
+
+      case AType_First is
+         when 'y' => return "D_Bus.Arguments.Basic.Byte_Type";
+         when 'b' => return "D_Bus.Arguments.Basic.Boolean_Type";
+         when 'n' => return "D_Bus.Arguments.Basic.Int16_Type";
+         when 'q' => return "D_Bus.Arguments.Basic.U_Int16_Type";
+         when 'i' => return "D_Bus.Arguments.Basic.Int32_Type";
+         when 'u' => return "D_Bus.Arguments.Basic.U_Int32_Type";
+         when 'x' => return "D_Bus.Arguments.Basic.Int64_Type";
+         when 't' => return "D_Bus.Arguments.Basic.U_Int64_Type";
+         when 'd' => return "D_Bus.Arguments.Basic.Double_Type";
+         --  TODO this isn’t going to work (D_Bus-Ada has no doubles)
+         when 's' => return "D_Bus.Arguments.Basic.String_Type";
+         when 'o' => return "D_Bus.Arguments.Basic.Object_Path_Type";
+         when 'g' => return "D_Bus.Arguments.Basic.String_Type";
+         when 'a' =>
+            --  Check for dicts
+            case T (T'First + 1) is
+               when '{' =>
+                  return "D_Bus.Arguments.Containers.Dict_Type";
+               when others =>
+                  return "D_Bus.Arguments.Containers.Array_Type";
+            end case;
+         when '(' => return "D_Bus.Arguments.Containers.Struct_Type";
+         when 'v' => return "D_Bus.Arguments.Containers.Variant_Type";
+         when 'h' => return "D_Bus.Arguments.Basic.File_Descriptor_Type";
+         --  TODO this isn’t going to work (D_Bus-Ada has no fd type)
+         when others => raise Program_Error;
+      end case;
+   end Get_DBus_Ada_Type;
 end Type_Checking;

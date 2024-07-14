@@ -37,6 +37,7 @@ package body Codegen.Specification is
       Put_Line (File, "package " & (+Pkg.Name) & " is");
 
       --  Print type declarations
+      --  TODO: they’re in the wrong order right now
       Print_Types_Builtin;
       Put_Line (File, "---------------------------");
       Put_Line (File, "-- Generated D_Bus Types --");
@@ -47,29 +48,30 @@ package body Codegen.Specification is
             when Array_Kind =>
                Put_Line
                  (File,
-                  "package Arrays_" &
+                  "package Pkg_" &
                   (+TD.Name) &
                   " is new Ada.Containers.Vectors (Positive, " &
-                  (+TD.Array_Element_Type) &
+                  (+Pkg.Type_Declarations (TD.Array_Element_Type_Code).Name) &
                   ");");
                Put_Line
                  (File,
-                  "subtype Array_" &
+                  "subtype " &
                   (+TD.Name) &
-                  " is Arrays_" &
+                  " is Pkg_" &
                   (+TD.Name) &
                   ".Vector;");
                New_Line (File);
             when Struct_Kind =>
                Put_Line
                 (File,
-                 "type Struct_" &
+                 "type " &
                  (+TD.Name) &
                  " is record");
 
                for SM of TD.Struct_Members loop
                   Put_Line
-                    (File, (+SM.Name) & " : " & (+SM.Member_Type) & ";");
+                    (File, (+SM.Name) & " : " &
+                    (+Pkg.Type_Declarations (SM.Type_Code).Name) & ";");
                end loop;
 
                Put_Line (File, "end record;");
@@ -77,18 +79,18 @@ package body Codegen.Specification is
             when Dict_Kind =>
                Put_Line
                 (File,
-                 "package Dicts_" &
+                 "package Pkg_" &
                  (+TD.Name) &
                  " is new Ada.Containers.Hashed_Maps (" &
-                 (+TD.Dict_Key_Type) &
+                 (+Pkg.Type_Declarations (TD.Dict_Key_Type_Code).Name) &
                  ", " &
-                 (+TD.Dict_Element_Type &
-                 ");"));
+                 (+Pkg.Type_Declarations (TD.Dict_Element_Type_Code).Name) &
+                 ");");
                Put_Line
                  (File,
-                  "subtype Dict_" &
+                  "subtype " &
                   (+TD.Name) &
-                  " is Dicts_" &
+                  " is Pkg_" &
                   (+TD.Name) &
                   ".Map;");
                New_Line (File);

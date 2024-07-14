@@ -4,9 +4,6 @@ package Type_Checking is
    function Is_Basic (T : String) return Boolean;
    --  Check whether a DBus type is basic (per spec)
 
-   function Sanitise (T : String) return String;
-   --  Sanitise a DBus type string to be Ada-compatible
-
    function Get_Interior (DType : String) return String;
    --  Get the type(s) contained within a container
 
@@ -18,4 +15,7 @@ package Type_Checking is
 
    function Get_Ada_Type (T : String) return String;
    --  Generate a consistent Ada name for a DBus type
+
+   function Get_DBus_Ada_Type (T : String) return String;
+   --  Get the D_Bus-Ada type name for a DBus type
 end Type_Checking;
