@@ -136,7 +136,7 @@ package body Type_Checking is
          when 'x' => return "Interfaces.Integer_64";
          when 't' => return "Interfaces.Unsigned_64";
          when 'd' => return "Interfaces.Float_64";
-         when 's' => return "Interfaces.Unbounded_String";
+         when 's' => return "Ada.Strings.Unbounded.Unbounded_String";
          when 'o' => return "Object_Path";
          when 'g' => return "Signature_Type";
          when 'a' =>
@@ -149,15 +149,15 @@ package body Type_Checking is
             end case;
          when '(' => return "Struct_" & Sanitise (Get_Interior (T));
          when 'v' => return "D_Bus.Arguments.Containers.Variant_Type";
-         when 'h' => return "System.OS_Lib.File_Descriptor";
+         when 'h' => return "GNAT.OS_Lib.File_Descriptor";
          when others => raise Program_Error;
       end case;
    end Get_Ada_Type;
 
-   -----------------------
-   -- Get_DBus_Ada_Type --
-   -----------------------
-   function Get_DBus_Ada_Type (T : String) return String
+   ---------------------------
+   -- Get_Library_DBus_Type --
+   ---------------------------
+   function Get_Library_DBus_Type (T : String) return String
    is
       AType_First : constant Character := T (T'First);
    begin
@@ -191,5 +191,36 @@ package body Type_Checking is
          --  TODO this isn’t going to work (D_Bus-Ada has no fd type)
          when others => raise Program_Error;
       end case;
-   end Get_DBus_Ada_Type;
+   end Get_Library_DBus_Type;
+
+   --------------------------
+   -- Get_Library_Ada_Type --
+   --------------------------
+   function Get_Library_Ada_Type (T : String) return String
+   is
+      AType_First : constant Character := T (T'First);
+   begin
+      if not Is_Basic (T) then
+         raise Program_Error with T & " is not a basic type";
+      end if;
+      --  ONLY for Basic Types
+      case AType_First is
+         when 'y' => return "D_Bus.Byte";
+         when 'b' => return "Boolean";
+         when 'n' => return "D_Bus.Signed_16";
+         when 'q' => return "D_Bus.Unsigned_16";
+         when 'i' => return "D_Bus.Signed_32";
+         when 'u' => return "D_Bus.Unsigned_32";
+         when 'x' => return "D_Bus.Signed_64";
+         when 't' => return "D_Bus.Unsigned_64";
+         when 'd' => return "D_Bus.Double";
+         --  TODO this isn’t going to work (D_Bus-Ada has no doubles)
+         when 's' => return "String";
+         when 'o' => return "D_Bus.Types.Obj_Path";
+         when 'g' => return "String";
+         when 'h' => return "D_Bus.File_Descriptor_Type";
+         --  TODO this isn’t going to work (D_Bus-Ada has no fd type)
+         when others => raise Program_Error;
+      end case;
+   end Get_Library_Ada_Type;
 end Type_Checking;

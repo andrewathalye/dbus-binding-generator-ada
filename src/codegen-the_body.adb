@@ -69,6 +69,20 @@ package body Codegen.The_Body is
          Put_Line (File, "use " & Entity & ";");
       end Use_Entity;
 
+      procedure Renames_Entity (L, T, R : String);
+      procedure Renames_Entity (L, T, R : String)
+      is
+      begin
+         Put_Line (File, L & " : " & T & " renames " & R & ";");
+      end Renames_Entity;
+
+      procedure Use_Type (T : String);
+      procedure Use_Type (T : String)
+      is
+      begin
+         Put_Line (File, "use type " & T & ";");
+      end Use_Type;
+
       procedure Declare_Entity
         (Entity : String; EType : String; Value : String := "");
       procedure Declare_Entity
@@ -140,6 +154,12 @@ package body Codegen.The_Body is
          Put_Line (File, "end " & Name & ";");
       end End_Package_Body;
 
+      procedure With_Entity (Entity : String);
+      procedure With_Entity (Entity : String) is
+      begin
+         Put_Line (File, "with " & Entity & ";");
+      end With_Entity;
+
       --  Produce a value `DBus_Name` by binding `Ada_Name`
       --  This doesn’t declare either name (that is for the
       --  caller to do)
@@ -157,7 +177,12 @@ package body Codegen.The_Body is
             --  !pp off
             --  DBus_Name := +Ada_Name
             when Builtin_Kind =>
-               Assign (DBus_Name, "+" & Ada_Name);
+               Assign
+                 (DBus_Name,
+                  "+" &
+                  Get_Library_Ada_Type (+TD.Type_Code) &
+                  " (" &
+                  Ada_Name & ")");
 
             --  for C of Ada_Name => DBus_Name.Append (Bind (C))
             when Array_Kind =>
@@ -165,7 +190,7 @@ package body Codegen.The_Body is
                   Declare_Code;
                      Declare_Entity
                        ("Obj",
-                        Get_DBus_Ada_Type (+TD.Array_Element_Type_Code));
+                        Get_Library_DBus_Type (+TD.Array_Element_Type_Code));
                   Begin_Code;
                      Bind_To_DBus_Inner
                        (TD        =>
@@ -183,7 +208,7 @@ package body Codegen.The_Body is
                   Declare_Code;
                      Declare_Entity
                        ("Obj",
-                        Get_DBus_Ada_Type (+SM.Type_Code));
+                        Get_Library_DBus_Type (+SM.Type_Code));
                   Begin_Code;
                      Bind_To_DBus_Inner
                        (TD =>
@@ -201,10 +226,10 @@ package body Codegen.The_Body is
                   Declare_Code;
                      Declare_Entity
                        ("Dict_Key",
-                        Get_DBus_Ada_Type (+TD.Dict_Key_Type_Code));
+                        Get_Library_DBus_Type (+TD.Dict_Key_Type_Code));
                      Declare_Entity
                        ("Dict_Element",
-                        Get_DBus_Ada_Type (+TD.Dict_Element_Type_Code));
+                        Get_Library_DBus_Type (+TD.Dict_Element_Type_Code));
                   Begin_Code;
                      Bind_To_DBus_Inner
                        (TD =>
@@ -239,7 +264,7 @@ package body Codegen.The_Body is
                Declare_Code;
                   Use_Entity ("D_Bus.Arguments.Basic");
                   Declare_Entity
-                    ("Obj", Get_DBus_Ada_Type (+A.Type_Code));
+                    ("Obj", Get_Library_DBus_Type (+A.Type_Code));
                Begin_Code;
                   Bind_To_DBus_Inner (TD, +A.Name, "Obj");
                   Call ("Request_Args.Append (Obj)");
@@ -291,33 +316,54 @@ package body Codegen.The_Body is
                Declare_Code;
                   Use_Entity ("D_Bus.Arguments.Basic");
                Begin_Code;
-                  Assign (Ada_Name, "+" & DBus_Name);
+                  --  Ada_Name := <Ada_Type> (D_Bus.Arguments.Basic.To_Ada
+                  --    (<DBus_Ada_Type> (DBus_Name)))
+                  Assign
+                    (Ada_Name,
+                    (+TD.Name)
+                    & " (" &
+                    "D_Bus.Arguments.Basic.To_Ada (" &
+                    Get_Library_DBus_Type (+TD.Type_Code) &
+                    " (" & DBus_Name & ")))");
                End_Code;
 
             --  for C of DBus_Name => Ada_Name.Append (Bind (C))
             when Array_Kind =>
-               Start_Index_For_Loop ("I", "1", DBus_Name & ".Get_Count");
-                  Declare_Code;
-                     --  DBus Element
-                     Declare_Entity
-                       ("Obj",
-                        Get_DBus_Ada_Type (+TD.Array_Element_Type_Code));
+               Declare_Code;
+                  Renames_Entity
+                    ("DBus_Array",
+                     "D_Bus.Arguments.Containers.Array_Type",
+                     "D_Bus.Arguments.Containers.Array_Type (" &
+                     DBus_Name & ")");
+               Begin_Code;
+                  Start_Index_For_Loop ("I", "1", "DBus_Array.Get_Count");
+                     Declare_Code;
+                        --  DBus Element
+                        Declare_Entity
+                          ("Obj",
+                           Get_Library_DBus_Type
+                             (+TD.Array_Element_Type_Code));
 
-                     --  Ada Element
-                     Declare_Entity
-                       ("Obj_Ada",
-                        +Pkg.Type_Declarations
-                          (TD.Array_Element_Type_Code).Name);
-                  Begin_Code;
-                     Assign ("Obj", DBus_Name & ".Get_Element (I)");
-                     Bind_To_Ada_Inner (
-                        TD =>
-                           Pkg.Type_Declarations (TD.Array_Element_Type_Code),
-                        DBus_Name => "Obj",
-                        Ada_Name => "Obj_Ada");
-                     Call (Ada_Name & ".Append (Obj_Ada)");
-                  End_Code;
-               End_For_Loop;
+                        --  Ada Element
+                        Declare_Entity
+                          ("Obj_Ada",
+                           +Pkg.Type_Declarations
+                             (TD.Array_Element_Type_Code).Name);
+                     Begin_Code;
+                        Assign
+                          ("Obj",
+                          Get_Library_DBus_Type (+TD.Array_Element_Type_Code) &
+                          " (DBus_Array.Get_Element (I))");
+                        Bind_To_Ada_Inner (
+                           TD =>
+                              Pkg.Type_Declarations
+                                (TD.Array_Element_Type_Code),
+                           DBus_Name => "Obj",
+                           Ada_Name => "Obj_Ada");
+                        Call (Ada_Name & ".Append (Obj_Ada)");
+                     End_Code;
+                  End_For_Loop;
+               End_Code;
 
             --  for M of DBus_Name => Ada_Name.<Member_I> := Bind (M)
             when Struct_Kind =>
@@ -385,8 +431,11 @@ package body Codegen.The_Body is
       end Bind_To_Ada;
    begin
       --  Preamble
-      Put_Line (File, "with D_Bus.Connection;");
-      Put_Line (File, "with D_Bus.Arguments;");
+      With_Entity ("D_Bus.Connection");
+      With_Entity ("D_Bus.Types");
+      Use_Type ("D_Bus.Types.Obj_Path");
+      With_Entity ("D_Bus.Arguments.Basic");
+      With_Entity ("D_Bus.Arguments.Containers");
       New_Line (File);
 
       --  Package
@@ -401,8 +450,8 @@ package body Codegen.The_Body is
             ASCII.Quotation & ASCII.Quotation);
          Declare_Entity
            ("Path",
-            "constant String",
-            ASCII.Quotation & (+Pkg.Node) & ASCII.Quotation);
+            "constant D_Bus.Types.Obj_Path",
+            "+" & ASCII.Quotation & (+Pkg.Node) & ASCII.Quotation);
          Declare_Entity
            ("Iface",
             "constant String",

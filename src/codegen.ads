@@ -36,16 +36,21 @@ private
       Name : Ada.Strings.Unbounded.Unbounded_String;
       --  Ada name of the DBus type
 
+      Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+      --  DBus type code
+
       case Kind is
-         when Builtin_Kind =>
-            null;
+         when Builtin_Kind => null;
          when Array_Kind =>
             Array_Element_Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+            --  DBus Type Code of an Array Element
          when Struct_Kind =>
             Struct_Members : Ada_Record_Member_List;
          when Dict_Kind =>
             Dict_Key_Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+            --  DBus Type Code of a Dict Key
             Dict_Element_Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+            --  DBus Type Code of a Dict Element
       end case;
    end record;
 

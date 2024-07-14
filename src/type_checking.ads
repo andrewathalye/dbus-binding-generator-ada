@@ -16,6 +16,9 @@ package Type_Checking is
    function Get_Ada_Type (T : String) return String;
    --  Generate a consistent Ada name for a DBus type
 
-   function Get_DBus_Ada_Type (T : String) return String;
-   --  Get the D_Bus-Ada type name for a DBus type
+   function Get_Library_DBus_Type (T : String) return String;
+   --  Get the D_Bus-Ada type name for a DBus type on the wire
+
+   function Get_Library_Ada_Type (T : String) return String;
+   --  Get the D_Bus-Ada type name for a DBus basic type
 end Type_Checking;

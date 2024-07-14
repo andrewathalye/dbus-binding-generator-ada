@@ -16,7 +16,8 @@ package body Codegen.Specification is
          Put_Line (File, "with Ada.Strings.Unbounded;");
          Put_Line (File, "with Ada.Containers.Vectors;");
          Put_Line (File, "with Ada.Containers.Hashed_Maps;");
-         Put_Line (File, "with System.OS_Lib;");
+         Put_Line (File, "with Interfaces;");
+         Put_Line (File, "with GNAT.OS_Lib;");
          Put_Line (File, "with D_Bus.Arguments.Containers;");
       end Print_Preamble;
 

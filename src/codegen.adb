@@ -36,6 +36,7 @@ package body Codegen is
                   Array_Decl : Ada_Type_Declaration (Array_Kind);
                begin
                   Array_Decl.Name := Ada_Type_Name;
+                  Array_Decl.Type_Code := Type_Code;
                   Array_Decl.Array_Element_Type_Code := Interior_UB;
 
                   Map.Insert (Type_Code, Array_Decl);
@@ -46,6 +47,7 @@ package body Codegen is
                   Struct_Decl : Ada_Type_Declaration (Struct_Kind);
                begin
                   Struct_Decl.Name := Ada_Type_Name;
+                  Struct_Decl.Type_Code := Type_Code;
 
                   --  Ensure all types are declared
                   I := 1;
@@ -98,6 +100,7 @@ package body Codegen is
                   Generate_Ada_Types (Map, Element_Type);
 
                   Dict_Decl.Name := Ada_Type_Name;
+                  Dict_Decl.Type_Code := Type_Code;
                   Dict_Decl.Dict_Key_Type_Code := Key_Type;
                   Dict_Decl.Dict_Element_Type_Code := Element_Type;
 
@@ -126,8 +129,9 @@ package body Codegen is
          when others =>
             Map.Insert
               (Type_Code,
-               (Kind => Builtin_Kind,
-                Name => +Get_Ada_Type (+Type_Code)));
+              (Kind      => Builtin_Kind,
+                Name      => +Get_Ada_Type (+Type_Code),
+                Type_Code => Type_Code));
       end case;
    end Generate_Ada_Types;
 
