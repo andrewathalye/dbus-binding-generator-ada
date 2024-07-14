@@ -19,7 +19,7 @@ with Schema.Validators;
 --  Local Codegen
 with Parsing;
 with Codegen;
---  with Codegen.Specification;
+with Codegen.Specification;
 with Codegen.The_Body;
 
 --  Utils
@@ -36,7 +36,7 @@ procedure DBus_Binding_Generator_Ada is
    begin
       Put_Line
         ("Usage: " & Ada.Command_Line.Command_Name &
-         " [INPUT] [OUTPUT DIR]");
+         " [INPUT]");
       GNAT.OS_Lib.OS_Exit (-1);
    end Show_Help;
 
@@ -52,7 +52,6 @@ procedure DBus_Binding_Generator_Ada is
    -- Variables --
    ---------------
    Input_File : Ada.Strings.Unbounded.Unbounded_String;
-   Output_Dir : Ada.Strings.Unbounded.Unbounded_String;
 
    ---------
    -- XML --
@@ -81,11 +80,10 @@ begin
    ------------
    -- Checks --
    ------------
-   --  Load input file, output dir
+   --  Load input file
    case Ada.Command_Line.Argument_Count is
-      when 2 =>
+      when 1 =>
          Input_File := +Ada.Command_Line.Argument (1);
-         Output_Dir := +Ada.Command_Line.Argument (2);
       when others => Show_Help;
    end case;
 
@@ -105,22 +103,6 @@ begin
       end if;
    end;
 
-   if Ada.Directories.Exists (+Output_Dir)
-   then
-      declare
-         use type Ada.Directories.File_Kind;
-      begin
-         if Ada.Directories.Kind (+Output_Dir) /= Ada.Directories.Directory
-         then
-            Error_Message
-              ("Output dir " & (+Output_Dir) &
-               " exists but is not a directory.");
-         end if;
-      end;
-   else
-      Ada.Directories.Create_Directory (+Output_Dir);
-   end if;
-
    -----------------
    -- Load schema --
    -----------------
@@ -128,7 +110,7 @@ begin
       Input : Input_Sources.File.File_Input;
       Reader : Schema.Schema_Readers.Schema_Reader;
    begin
-      Input_Sources.File.Open ("introspect.xsd", Input);
+      Input_Sources.File.Open ("data/introspect.xsd", Input);
       Reader.Parse (Input);
       Input.Close;
       Grammar := Reader.Get_Grammar;
@@ -177,7 +159,7 @@ begin
          Pkg : constant Codegen.Ada_Package_Type := Codegen.Create_Package
            (Node.Name, I);
       begin
---         Codegen.Specification.Print (Pkg, Ada.Text_IO.Standard_Output);
+         Codegen.Specification.Print (Pkg, Ada.Text_IO.Standard_Output);
          Codegen.The_Body.Print (Pkg, Ada.Text_IO.Standard_Output);
       end;
    end loop;

@@ -98,6 +98,19 @@ package body Codegen.The_Body is
          Put_Line (File, Expression & ";");
       end Call;
 
+      procedure Start_If (Expression : String);
+      procedure Start_If (Expression : String)
+      is
+      begin
+         Put_Line (File, "if " & Expression & " then");
+      end Start_If;
+
+      procedure End_If;
+      procedure End_If is
+      begin
+         Put_Line ("end if;");
+      end End_If;
+
       procedure Start_Procedure (Signature : String);
       procedure Start_Procedure (Signature : String)
       is
@@ -381,6 +394,7 @@ package body Codegen.The_Body is
       Start_Package_Body (+Pkg.Name);
          --  Globals
          Declare_Entity ("Connection", "D_Bus.Connection.Connection_Type");
+         Declare_Entity ("Connected", "Boolean", "False");
          Declare_Entity
            ("Destination",
             "constant String",
@@ -398,7 +412,10 @@ package body Codegen.The_Body is
          --  Private
          Start_Procedure ("Connect");
          Begin_Code;
-            Assign ("Connection", "D_Bus.Connection.Connect");
+            Start_If ("not Connected");
+               Assign ("Connection", "D_Bus.Connection.Connect");
+               Assign ("Connected", "True");
+            End_If;
          End_Procedure ("Connect");
 
          --  Subprograms
@@ -411,6 +428,9 @@ package body Codegen.The_Body is
                Declare_Entity
                  ("Reply_Args", "D_Bus.Arguments.Argument_List_Type");
             Begin_Code;
+               Call ("Connect");
+               New_Line (File);
+
                --  Bind each in argument
                for A of SP.Arguments loop
                   if +A.Direction = "in" then

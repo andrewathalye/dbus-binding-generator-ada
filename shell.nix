@@ -13,6 +13,7 @@ nix-ada.pkgs.mkShell {
       
    buildInputs = [
       nix-ada.pkgs.xmlada
+      nix-ada.dbus-ada
    ];
 
    shellHook = ''

@@ -18,7 +18,6 @@ package body Codegen.Specification is
          Put_Line (File, "with Ada.Containers.Hashed_Maps;");
          Put_Line (File, "with System.OS_Lib;");
          Put_Line (File, "with D_Bus.Arguments.Containers;");
-         New_Line (File);
       end Print_Preamble;
 
       procedure Print_Types_Builtin;
@@ -29,16 +28,18 @@ package body Codegen.Specification is
          Put_Line (File, "-------------------------");
          Put_Line (File, "type Object_Path is new String;");
          Put_Line (File, "type Signature_Type is new String;");
-         New_Line (File);
       end Print_Types_Builtin;
    begin
       Print_Preamble;
+      New_Line (File);
 
       Put_Line (File, "package " & (+Pkg.Name) & " is");
 
       --  Print type declarations
       --  TODO: they’re in the wrong order right now
       Print_Types_Builtin;
+      New_Line (File);
+
       Put_Line (File, "---------------------------");
       Put_Line (File, "-- Generated D_Bus Types --");
       Put_Line (File, "---------------------------");
@@ -102,9 +103,9 @@ package body Codegen.Specification is
       Put_Line (File, "-- DBus Methods --");
       Put_Line (File, "------------------");
       for SP of Pkg.Subprograms loop
+         New_Line (File);
          Print_Signature (SP, File);
          Put_Line (File, ";");
-         New_Line (File);
       end loop;
 
       Put_Line (File, "end " & (+Pkg.Name) & ";");

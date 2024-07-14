@@ -1,5 +1,6 @@
 /dbus_binding_generator_ada
 /obj
+/test
 *~
 *.swp
 *.swo
