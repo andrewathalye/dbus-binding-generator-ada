@@ -1,0 +1,57 @@
+<node name="/tk/zenithseeker/hyprwatch">
+   <interface name="org.freedesktop.DBus.Introspectable">
+      <method name="Introspect">
+         <arg name="introspect" type="s" direction="out"/>
+      </method>
+   </interface>
+
+   <interface name="tk.zenithseeker.hyprwatch">
+      <!-- Signal sent when Hyprland updates Hypr2 -->
+      <signal name="HyprUpdate">
+         <arg name="json" type="s"/>
+      </signal>
+
+      <!-- Get all workspaces as coordinate pairs -->
+      <method name="GetWorkspaces">
+         <arg name="workspaces" type="a(yy)" direction="out"/>
+      </method>
+
+      <!-- Go to workspace (x,y) -->
+      <method name="ActivateWorkspace">
+         <arg name="workspace" type="(yy)" direction="in"/>
+         <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+      </method>
+
+      <!-- Move workspaces l/r/u/d -->
+      <method name="ActivateWorkspaceRel">
+         <arg name="direction" type="s" direction="in"/>
+         <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+      </method>
+
+      <!-- Move a window (or 0 for default) to (x,y) -->
+      <method name="MoveWindow">
+         <arg name="window_id" type="t" direction="in"/>
+         <arg name="workspace" type="(yy)" direction="in"/>
+         <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+      </method>
+
+      <!-- Move a window (or 0 for default) l/r/u/d -->
+      <method name="MoveWindowRel">
+         <arg name="window_id" type="t" direction="in"/>
+         <arg name="direction" type="s" direction="in"/>
+         <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+      </method>
+
+      <!-- Set `keyboard` (or "" for the default) to `layout: (name, variant)` -->
+      <method name="UpdateKeyboardLayout">
+         <arg name="keyboard" type="s" direction="in"/>
+         <arg name="layout" type="(ss)" direction="in"/>
+         <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+      </method>
+
+      <!-- Print out debugging data. The result is unstructured. -->
+      <method name="DumpData">
+         <arg name="data" type="s" direction="out"/>
+      </method>
+   </interface>
+</node>

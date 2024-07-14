@@ -1,0 +1,40 @@
+<node name="/test/node">
+   <interface name="test.interface">
+      <method name="TestDirections">
+         <arg name="targin" type="s" direction="in"/>
+         <arg name="targout" type="s" direction="out"/>
+      </method>
+
+      <method name="TestBasicTypes">
+         <arg type="y" direction="in"/>
+         <arg type="b" direction="in"/>
+         <arg type="n" direction="in"/>
+         <arg type="q" direction="in"/>
+         <arg type="i" direction="in"/>
+         <arg type="u" direction="in"/>
+         <arg type="x" direction="in"/>
+         <arg type="t" direction="in"/>
+         <arg type="d" direction="in"/>
+         <arg type="s" direction="in"/>
+         <arg type="o" direction="in"/>
+         <arg type="g" direction="in"/>
+         <arg type="v" direction="in"/>
+         <arg type="h" direction="in"/>
+      </method>
+
+      <method name="TestComplexTypes">
+         <arg name="simple_arr" type="as" direction="in"/>
+         <arg name="simple_dict" type="a{sv}" direction="in"/>
+         <arg name="arr_struct" type="a(ts)" direction="in"/>
+         <arg name="dict_struct" type="a{t(sv)}" direction="in"/>
+      </method>
+
+      <signal name="TestSignal">
+         <arg name="targ" type="s"/>
+      </signal>
+
+      <property name="TestProperty" type="s" access="readwrite"/>
+
+      <annotation name="test.annotation" value="Test"/>
+   </interface>
+</node>
