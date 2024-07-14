@@ -1,11 +1,6 @@
 <node name="/test/node">
    <interface name="test.interface">
-      <method name="TestDirections">
-         <arg name="targin" type="s" direction="in"/>
-         <arg name="targout" type="s" direction="out"/>
-      </method>
-
-      <method name="TestBasicTypes">
+      <method name="TestBasicTypesIn">
          <arg type="y" direction="in"/>
          <arg type="b" direction="in"/>
          <arg type="n" direction="in"/>
@@ -22,11 +17,35 @@
          <arg type="h" direction="in"/>
       </method>
 
+      <method name="TestBasicTypesOut">
+         <arg type="y" direction="out"/>
+         <arg type="b" direction="out"/>
+         <arg type="n" direction="out"/>
+         <arg type="q" direction="out"/>
+         <arg type="i" direction="out"/>
+         <arg type="u" direction="out"/>
+         <arg type="x" direction="out"/>
+         <arg type="t" direction="out"/>
+         <arg type="d" direction="out"/>
+         <arg type="s" direction="out"/>
+         <arg type="o" direction="out"/>
+         <arg type="g" direction="out"/>
+         <arg type="v" direction="out"/>
+         <arg type="h" direction="out"/>
+      </method>
+
       <method name="TestComplexTypes">
          <arg name="simple_arr" type="as" direction="in"/>
          <arg name="simple_dict" type="a{sv}" direction="in"/>
          <arg name="arr_struct" type="a(ts)" direction="in"/>
          <arg name="dict_struct" type="a{t(sv)}" direction="in"/>
+      </method>
+
+      <method name="TestComplexTypesOut">
+         <arg name="simple_arr" type="as" direction="out"/>
+         <arg name="simple_dict" type="a{sv}" direction="out"/>
+         <arg name="arr_struct" type="a(ts)" direction="out"/>
+         <arg name="dict_struct" type="a{t(sv)}" direction="out"/>
       </method>
 
       <signal name="TestSignal">
