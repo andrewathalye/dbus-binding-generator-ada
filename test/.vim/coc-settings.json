@@ -1,0 +1,24 @@
+  {
+     "languageserver": {
+        "ada": {
+           "command": "ada_language_server",
+           "settings":{
+              "ada": {
+                 "projectFile": "test.gpr"
+              }
+           },
+           "filetypes": [
+              "ads",
+              "adb",
+              "ada"
+           ]
+        },
+        "gpr": {
+           "command": "ada_language_server",
+           "args": ["--language-gpr"],
+           "filetypes": [
+              "gpr"
+           ]
+        }
+     }
+  }

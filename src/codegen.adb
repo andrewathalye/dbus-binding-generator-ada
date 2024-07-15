@@ -7,11 +7,11 @@ with Shared; use Shared;
 package body Codegen is
    --  Generate Ada type declarations for an argument
    procedure Generate_Ada_Types
-     (Map : in out Ada_Type_Declaration_Map;
-      Type_Code : Ada.Strings.Unbounded.Unbounded_String);
+     (Map       : in out Ada_Type_Declaration_Map;
+      Type_Code :        Ada.Strings.Unbounded.Unbounded_String);
    procedure Generate_Ada_Types
-     (Map : in out Ada_Type_Declaration_Map;
-     Type_Code : Ada.Strings.Unbounded.Unbounded_String)
+     (Map       : in out Ada_Type_Declaration_Map;
+      Type_Code :        Ada.Strings.Unbounded.Unbounded_String)
    is
       type Type_Category is (DBus_Array, DBus_Struct, DBus_Dict);
 
@@ -22,11 +22,11 @@ package body Codegen is
       procedure Internal (T : Type_Category) is
          use Ada.Strings.Unbounded;
 
-         Interior_S : constant String := Get_Interior (+Type_Code);
+         Interior_S  : constant String           := Get_Interior (+Type_Code);
          Interior_UB : constant Unbounded_String := +Interior_S;
 
          Ada_Type_Name : constant Ada.Strings.Unbounded.Unbounded_String :=
-            +Get_Ada_Type (+Type_Code);
+           +Get_Ada_Type (+Type_Code);
       begin
          case T is
             when DBus_Array =>
@@ -35,18 +35,18 @@ package body Codegen is
                declare
                   Array_Decl : Ada_Type_Declaration (Array_Kind);
                begin
-                  Array_Decl.Name := Ada_Type_Name;
-                  Array_Decl.Type_Code := Type_Code;
+                  Array_Decl.Name                    := Ada_Type_Name;
+                  Array_Decl.Type_Code               := Type_Code;
                   Array_Decl.Array_Element_Type_Code := Interior_UB;
 
                   Map.Insert (Type_Code, Array_Decl);
                end;
             when DBus_Struct =>
                declare
-                  I : Positive;
+                  I           : Positive;
                   Struct_Decl : Ada_Type_Declaration (Struct_Kind);
                begin
-                  Struct_Decl.Name := Ada_Type_Name;
+                  Struct_Decl.Name      := Ada_Type_Name;
                   Struct_Decl.Type_Code := Type_Code;
 
                   --  Ensure all types are declared
@@ -56,7 +56,8 @@ package body Codegen is
                         Generate_Ada_Types
                           (Map, +Get_Complete_Type (Interior_S, I));
                      exception
-                        when No_More_Complete_Types => exit;
+                        when No_More_Complete_Types =>
+                           exit;
                      end;
 
                      I := I + 1;
@@ -68,12 +69,14 @@ package body Codegen is
                      begin
                         Struct_Decl.Struct_Members.Append
                           (Ada_Record_Member_Type'
-                           (Name =>
-                              +("Member_" &
-                              I'Image (I'Image'First + 1 .. I'Image'Last)),
-                           Type_Code => +Get_Complete_Type (Interior_S, I)));
+                             (Name      =>
+                                +("Member_" &
+                                 I'Image (I'Image'First + 1 .. I'Image'Last)),
+                              Type_Code =>
+                                +Get_Complete_Type (Interior_S, I)));
                      exception
-                        when No_More_Complete_Types => exit;
+                        when No_More_Complete_Types =>
+                           exit;
                      end;
 
                      I := I + 1;
@@ -83,25 +86,33 @@ package body Codegen is
                end;
             when DBus_Dict =>
                declare
-                  Key_Type : constant Unbounded_String :=
-                     +Get_Complete_Type (Interior_S, 1);
+                  Key_Type     : constant Unbounded_String :=
+                    +Get_Complete_Type (Interior_S, 1);
                   Element_Type : constant Unbounded_String :=
-                     +Get_Complete_Type (Interior_S, 2);
+                    +Get_Complete_Type (Interior_S, 2);
 
-                  Dict_Decl : Ada_Type_Declaration (Dict_Kind);
+                  Dict_Decl : Ada_Type_Declaration;
                begin
                   --  A dict key must be a basic type
                   if not Is_Basic (+Key_Type) then
-                     raise Program_Error with
-                        "Key " & (+Key_Type) & " is a complex type";
+                     raise Program_Error
+                       with "Key " & (+Key_Type) & " is a complex type";
                   end if;
 
                   Generate_Ada_Types (Map, Key_Type);
                   Generate_Ada_Types (Map, Element_Type);
 
-                  Dict_Decl.Name := Ada_Type_Name;
-                  Dict_Decl.Type_Code := Type_Code;
-                  Dict_Decl.Dict_Key_Type_Code := Key_Type;
+                  --  Update the dict kind based upon the key type
+                  if Is_Stringlike (+Key_Type) then
+                     Dict_Decl := (Kind => Hashed_Dict_Kind, others => <>);
+                  else
+                     Dict_Decl := (Kind => Ordered_Dict_Kind, others => <>);
+                  end if;
+
+                  --  Fill in the record
+                  Dict_Decl.Name                   := Ada_Type_Name;
+                  Dict_Decl.Type_Code              := Type_Code;
+                  Dict_Decl.Dict_Key_Type_Code     := Key_Type;
                   Dict_Decl.Dict_Element_Type_Code := Element_Type;
 
                   Map.Insert (Type_Code, Dict_Decl);
@@ -126,25 +137,26 @@ package body Codegen is
             end if;
          when '(' =>
             Internal (DBus_Struct);
+         when 'v' =>
+            Map.Insert
+              (Type_Code,
+              (Kind       => Variant_Kind, Name => +Get_Ada_Type (+Type_Code),
+                Type_Code => Type_Code));
          when others =>
             Map.Insert
               (Type_Code,
-              (Kind      => Builtin_Kind,
-                Name      => +Get_Ada_Type (+Type_Code),
+              (Kind       => Basic_Kind, Name => +Get_Ada_Type (+Type_Code),
                 Type_Code => Type_Code));
       end case;
    end Generate_Ada_Types;
 
    --  Create an Ada argument for a DBus argument
-   function Create_Argument (A : Argument_Type) return Ada_Argument_Type
-   is (Name => A.Name,
-       Type_Code => A.AType,
-       Direction => A.Direction);
+   function Create_Argument (A : Argument_Type) return Ada_Argument_Type is
+     (Name => A.Name, Type_Code => A.AType, Direction => A.Direction);
 
    --  Create a subprogram for a method
    function Create_Subprogram (M : Method_Type) return Ada_Subprogram_Type;
-   function Create_Subprogram (M : Method_Type) return Ada_Subprogram_Type
-   is
+   function Create_Subprogram (M : Method_Type) return Ada_Subprogram_Type is
       use Ada.Strings.Unbounded;
 
       FI : constant Positive := M.Arguments.First_Index;
@@ -162,8 +174,8 @@ package body Codegen is
 
             --  Give a unique name to unnamed parameters
             if Arg.Name = Null_Unbounded_String then
-               Arg.Name := +("Parameter_" &
-                  I'Image (I'Image'First + 1 .. I'Image'Last));
+               Arg.Name :=
+                 +("Parameter_" & I'Image (I'Image'First + 1 .. I'Image'Last));
             end if;
 
             Sp.Arguments.Append (Arg);
@@ -173,50 +185,12 @@ package body Codegen is
       return Sp;
    end Create_Subprogram;
 
-   ---------------------
-   -- Print_Signature --
-   ---------------------
-   procedure Print_Signature
-     (SP : Ada_Subprogram_Type;
-      File : Ada.Text_IO.File_Type)
-   is
-      use Ada.Text_IO;
-   begin
-      Put (File, "procedure " & (+SP.Name));
-
-      if not SP.Arguments.Is_Empty then
-         Put (File, " (");
-
-         declare
-            SPA : Ada_Argument_Type_List renames SP.Arguments;
-            FI : constant Positive := SPA.First_Index;
-            LI : constant Positive := SPA.Last_Index;
-         begin
-            for I in FI .. LI loop
-               Put
-                 (File,
-                  (+SPA (I).Name) &
-                  " : " &
-                  (+SPA (I).Direction) &
-                  " " &
-                  (Get_Ada_Type (+SPA (I).Type_Code)));
-
-               if I /= LI then
-                  Put ("; ");
-               end if;
-            end loop;
-         end;
-
-         Put (File, ")");
-      end if;
-   end Print_Signature;
-
    --------------------
    -- Create_Package --
    --------------------
    function Create_Package
-     (Node : Ada.Strings.Unbounded.Unbounded_String;
-      I : Interface_Type) return Ada_Package_Type
+     (Node : Ada.Strings.Unbounded.Unbounded_String; I : Interface_Type)
+      return Ada_Package_Type
    is
       Name : String := +I.Name;
 
@@ -231,8 +205,8 @@ package body Codegen is
          end if;
       end loop;
 
-      Pkg.Name := +Name;
-      Pkg.Node := Node;
+      Pkg.Name  := +Name;
+      Pkg.Node  := Node;
       Pkg.Iface := I.Name;
 
       -----------

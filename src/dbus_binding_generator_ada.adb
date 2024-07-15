@@ -24,7 +24,7 @@ with Codegen.The_Body;
 
 --  Utils
 with Shared; use Shared;
-with Debug; use Debug;
+with Debug;  use Debug;
 
 procedure DBus_Binding_Generator_Ada is
    -----------------
@@ -34,9 +34,7 @@ procedure DBus_Binding_Generator_Ada is
    procedure Show_Help is
       use Ada.Text_IO;
    begin
-      Put_Line
-        ("Usage: " & Ada.Command_Line.Command_Name &
-         " [INPUT]");
+      Put_Line ("Usage: " & Ada.Command_Line.Command_Name & " [INPUT]");
       GNAT.OS_Lib.OS_Exit (-1);
    end Show_Help;
 
@@ -56,9 +54,9 @@ procedure DBus_Binding_Generator_Ada is
    ---------
    -- XML --
    ---------
-   Grammar : Schema.Validators.XML_Grammar;
+   Grammar  : Schema.Validators.XML_Grammar;
    Document : DOM.Core.Document;
-   Node : Parsing.Node_Type;
+   Node     : Parsing.Node_Type;
 begin
    Put_Debug ("dbus_binding_generator_ada");
 
@@ -68,8 +66,10 @@ begin
    loop
       begin
          case GNAT.Command_Line.Getopt ("h help -help") is
-            when ASCII.NUL => exit;
-            when others => Show_Help;
+            when ASCII.NUL =>
+               exit;
+            when others =>
+               Show_Help;
          end case;
       exception
          when GNAT.Command_Line.Invalid_Switch =>
@@ -84,7 +84,8 @@ begin
    case Ada.Command_Line.Argument_Count is
       when 1 =>
          Input_File := +Ada.Command_Line.Argument (1);
-      when others => Show_Help;
+      when others =>
+         Show_Help;
    end case;
 
    --  Check that these exist
@@ -92,8 +93,8 @@ begin
       use type Ada.Directories.File_Kind;
    begin
       if Ada.Directories.Exists (+Input_File)
-         and then Ada.Directories.Kind
-           (+Input_File) = Ada.Directories.Ordinary_File
+        and then Ada.Directories.Kind (+Input_File) =
+          Ada.Directories.Ordinary_File
       then
          null;
       else
@@ -107,7 +108,7 @@ begin
    -- Load schema --
    -----------------
    declare
-      Input : Input_Sources.File.File_Input;
+      Input  : Input_Sources.File.File_Input;
       Reader : Schema.Schema_Readers.Schema_Reader;
    begin
       Input_Sources.File.Open ("data/introspect.xsd", Input);
@@ -126,7 +127,7 @@ begin
    -- Load document from input file --
    -----------------------------------
    declare
-      Input : Input_Sources.File.File_Input;
+      Input  : Input_Sources.File.File_Input;
       Reader : Schema.Dom_Readers.Tree_Reader;
    begin
       Reader.Set_Grammar (Grammar);
@@ -147,8 +148,7 @@ begin
    -- Process document --
    ----------------------
    --  Note: The document must be valid by definition
-   Node := Parsing.Process_Node
-     (DOM.Core.Documents.Get_Element (Document));
+   Node := Parsing.Process_Node (DOM.Core.Documents.Get_Element (Document));
    DOM.Core.Nodes.Free (Document);
 
    -------------------
@@ -156,11 +156,11 @@ begin
    -------------------
    for I of Node.Interfaces loop
       declare
-         Pkg : constant Codegen.Ada_Package_Type := Codegen.Create_Package
-           (Node.Name, I);
+         Pkg : constant Codegen.Ada_Package_Type :=
+           Codegen.Create_Package (Node.Name, I);
       begin
-         Codegen.Specification.Print (Pkg, Ada.Text_IO.Standard_Output);
-         Codegen.The_Body.Print (Pkg, Ada.Text_IO.Standard_Output);
+         Codegen.Specification.Print (Pkg);
+         Codegen.The_Body.Print (Pkg);
       end;
    end loop;
 end DBus_Binding_Generator_Ada;

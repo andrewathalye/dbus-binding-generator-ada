@@ -9,12 +9,10 @@
          <arg type="u" direction="in"/>
          <arg type="x" direction="in"/>
          <arg type="t" direction="in"/>
-         <arg type="d" direction="in"/>
          <arg type="s" direction="in"/>
          <arg type="o" direction="in"/>
          <arg type="g" direction="in"/>
          <arg type="v" direction="in"/>
-         <arg type="h" direction="in"/>
       </method>
 
       <method name="TestBasicTypesOut">
@@ -26,12 +24,10 @@
          <arg type="u" direction="out"/>
          <arg type="x" direction="out"/>
          <arg type="t" direction="out"/>
-         <arg type="d" direction="out"/>
          <arg type="s" direction="out"/>
          <arg type="o" direction="out"/>
          <arg type="g" direction="out"/>
          <arg type="v" direction="out"/>
-         <arg type="h" direction="out"/>
       </method>
 
       <method name="TestComplexTypes">

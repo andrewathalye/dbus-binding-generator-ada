@@ -1,114 +1,167 @@
+with Codegen.Output; use Codegen.Output;
+
 with Shared; use Shared;
 
 package body Codegen.Specification is
+   --  Produce an acceptable order for dependency resolution
+   --  'Elaborate' the type declaration order
+   package ATDL is new Ada.Containers.Vectors (Positive, Ada_Type_Declaration);
+   subtype Ada_Type_Declaration_List is ATDL.Vector;
+
+   function Resolve_Dependencies
+     (TDM : Ada_Type_Declaration_Map) return Ada_Type_Declaration_List;
+   function Resolve_Dependencies
+     (TDM : Ada_Type_Declaration_Map) return Ada_Type_Declaration_List
+   is
+      package USL is new Ada.Containers.Vectors
+        (Positive, Ada.Strings.Unbounded.Unbounded_String);
+      subtype Unbounded_String_List is USL.Vector;
+
+      Result      : Ada_Type_Declaration_List;
+      Bookkeeping : Unbounded_String_List;
+
+      procedure Resolve_Dependency (TD : Ada_Type_Declaration);
+      procedure Resolve_Dependency (TD : Ada_Type_Declaration) is
+      begin
+         case TD.Kind is
+            when Basic_Kind | Variant_Kind =>
+               null;
+            when Array_Kind =>
+               if not Bookkeeping.Contains (TD.Array_Element_Type_Code) then
+                  Resolve_Dependency (TDM (TD.Array_Element_Type_Code));
+               end if;
+            when Ordered_Dict_Kind | Hashed_Dict_Kind =>
+               if not Bookkeeping.Contains (TD.Dict_Key_Type_Code) then
+                  Resolve_Dependency (TDM (TD.Dict_Key_Type_Code));
+               end if;
+
+               if not Bookkeeping.Contains (TD.Dict_Element_Type_Code) then
+                  Resolve_Dependency (TDM (TD.Dict_Element_Type_Code));
+               end if;
+            when Struct_Kind =>
+               for SM of TD.Struct_Members loop
+                  if not Bookkeeping.Contains (SM.Type_Code) then
+                     Resolve_Dependency (TDM (SM.Type_Code));
+                  end if;
+               end loop;
+         end case;
+
+         Bookkeeping.Append (TD.Type_Code);
+         Result.Append (TD);
+      end Resolve_Dependency;
+   begin
+      for TD of TDM loop
+         if not Bookkeeping.Contains (TD.Type_Code) then
+            Resolve_Dependency (TD);
+         end if;
+      end loop;
+      return Result;
+   end Resolve_Dependencies;
+
    -----------
    -- Print --
    -----------
-   procedure Print
-     (Pkg : Ada_Package_Type;
-      File : Ada.Text_IO.File_Type)
-   is
-      use Ada.Text_IO;
-      procedure Print_Preamble;
-      procedure Print_Preamble is
-      begin
-         Put_Line (File, "pragma Ada_2012;");
-         Put_Line (File, "with Ada.Strings.Unbounded;");
-         Put_Line (File, "with Ada.Containers.Vectors;");
-         Put_Line (File, "with Ada.Containers.Hashed_Maps;");
-         Put_Line (File, "with Interfaces;");
-         Put_Line (File, "with GNAT.OS_Lib;");
-         Put_Line (File, "with D_Bus.Arguments.Containers;");
-      end Print_Preamble;
-
-      procedure Print_Types_Builtin;
-      procedure Print_Types_Builtin is
-      begin
-         Put_Line (File, "-------------------------");
-         Put_Line (File, "-- Builtin D_Bus Types --");
-         Put_Line (File, "-------------------------");
-         Put_Line (File, "type Object_Path is new String;");
-         Put_Line (File, "type Signature_Type is new String;");
-      end Print_Types_Builtin;
+   procedure Print (Pkg : Ada_Package_Type) is
    begin
-      Print_Preamble;
-      New_Line (File);
+      --  Preamble
+      Use_Pragma ("Ada_2012");
+      With_Entity ("Ada.Strings.Unbounded");
+      Use_Type ("Ada.Strings.Unbounded.Unbounded_String");
+      With_Entity ("Ada.Strings.Unbounded.Hash");
+      With_Entity ("Ada.Containers.Vectors");
+      With_Entity ("Ada.Containers.Ordered_Maps");
+      With_Entity ("Ada.Containers.Hashed_Maps");
+      With_Entity ("Interfaces");
+      Use_Entity ("Interfaces");
+      With_Entity ("GNAT.OS_Lib");
+      With_Entity ("D_Bus.Arguments.Basic");
+      Use_Entity ("D_Bus.Arguments.Basic");
+      With_Entity ("D_Bus.Arguments.Containers");
+      Use_Entity ("D_Bus.Arguments.Containers");
+      New_Line;
 
-      Put_Line (File, "package " & (+Pkg.Name) & " is");
+      --  Package Spec
+      --!pp off
+      Start_Package (+Pkg.Name);
+         Large_Comment ("Builtin D_Bus Types");
+         Declare_Subtype
+           ("Object_Path", "Ada.Strings.Unbounded.Unbounded_String");
+         Declare_Subtype
+           ("Signature_Type", "Ada.Strings.Unbounded.Unbounded_String");
+         New_Line;
 
-      --  Print type declarations
-      --  TODO: they’re in the wrong order right now
-      Print_Types_Builtin;
-      New_Line (File);
+         Large_Comment ("Generated D_Bus Types");
+         for TD of Resolve_Dependencies (Pkg.Type_Declarations) loop
+            case TD.Kind is
+               when Basic_Kind | Variant_Kind =>
+                  null;
+               when Array_Kind =>
+                  Declare_Package
+                    ("Pkg_" & (+TD.Name),
+                     "new Ada.Containers.Vectors (Positive, " &
+                     (+Pkg.Type_Declarations
+                        (TD.Array_Element_Type_Code).Name) &
+                     ")");
 
-      Put_Line (File, "---------------------------");
-      Put_Line (File, "-- Generated D_Bus Types --");
-      Put_Line (File, "---------------------------");
-      for TD of Pkg.Type_Declarations loop
-         case TD.Kind is
-            when Builtin_Kind => null;
-            when Array_Kind =>
-               Put_Line
-                 (File,
-                  "package Pkg_" &
-                  (+TD.Name) &
-                  " is new Ada.Containers.Vectors (Positive, " &
-                  (+Pkg.Type_Declarations (TD.Array_Element_Type_Code).Name) &
-                  ");");
-               Put_Line
-                 (File,
-                  "subtype " &
-                  (+TD.Name) &
-                  " is Pkg_" &
-                  (+TD.Name) &
-                  ".Vector;");
-               New_Line (File);
-            when Struct_Kind =>
-               Put_Line
-                (File,
-                 "type " &
-                 (+TD.Name) &
-                 " is record");
+                  Declare_Subtype (+TD.Name, "Pkg_" & (+TD.Name) & ".Vector");
+                  Use_Type (+TD.Name);
+                  New_Line;
+               when Struct_Kind =>
+                  Start_Record (+TD.Name);
+                  for SM of TD.Struct_Members loop
+                     Declare_Entity
+                       (+SM.Name,
+                        (+Pkg.Type_Declarations (SM.Type_Code).Name));
+                  end loop;
+                  End_Record;
+                  New_Line;
+               when Ordered_Dict_Kind =>
+                  Declare_Package
+                    ("Pkg_" & (+TD.Name),
+                     "new Ada.Containers.Ordered_Maps (" &
+                     (+Pkg.Type_Declarations (TD.Dict_Key_Type_Code).Name) &
+                     ", " &
+                     (+Pkg.Type_Declarations
+                        (TD.Dict_Element_Type_Code).Name) &
+                     ")");
 
-               for SM of TD.Struct_Members loop
-                  Put_Line
-                    (File, (+SM.Name) & " : " &
-                    (+Pkg.Type_Declarations (SM.Type_Code).Name) & ";");
-               end loop;
+                  Declare_Subtype (+TD.Name, "Pkg_" & (+TD.Name) & ".Map");
+                  Use_Type (+TD.Name);
+                  New_Line;
+               when Hashed_Dict_Kind =>
+                  Declare_Package
+                    ("Pkg_" & (+TD.Name),
+                     "new Ada.Containers.Hashed_Maps (" &
+                     (+Pkg.Type_Declarations (TD.Dict_Key_Type_Code).Name) &
+                     ", " &
+                     (+Pkg.Type_Declarations
+                        (TD.Dict_Element_Type_Code).Name) &
+                     ", Ada.Strings.Unbounded.Hash, " & ASCII.Quotation & "=" &
+                     ASCII.Quotation & ")");
 
-               Put_Line (File, "end record;");
-               New_Line (File);
-            when Dict_Kind =>
-               Put_Line
-                (File,
-                 "package Pkg_" &
-                 (+TD.Name) &
-                 " is new Ada.Containers.Hashed_Maps (" &
-                 (+Pkg.Type_Declarations (TD.Dict_Key_Type_Code).Name) &
-                 ", " &
-                 (+Pkg.Type_Declarations (TD.Dict_Element_Type_Code).Name) &
-                 ");");
-               Put_Line
-                 (File,
-                  "subtype " &
-                  (+TD.Name) &
-                  " is Pkg_" &
-                  (+TD.Name) &
-                  ".Map;");
-               New_Line (File);
-         end case;
-      end loop;
+                  Declare_Subtype (+TD.Name, "Pkg_" & (+TD.Name) & ".Map");
+                  Use_Type (+TD.Name);
+                  New_Line;
 
-      --  Print subprogram specs
-      Put_Line (File, "------------------");
-      Put_Line (File, "-- DBus Methods --");
-      Put_Line (File, "------------------");
-      for SP of Pkg.Subprograms loop
-         New_Line (File);
-         Print_Signature (SP, File);
-         Put_Line (File, ";");
-      end loop;
+            end case;
+         end loop;
 
-      Put_Line (File, "end " & (+Pkg.Name) & ";");
+         --  Print subprogram specs
+         Large_Comment ("Builtin");
+         Declare_Entity ("Not_Connected", "exception");
+         Declare_Entity ("Already_Connected", "exception");
+         Declare_Procedure ("Connect (Dest : String)");
+         Comment ("--  Connect and prepare to send messages to `Dest`");
+         Comment ("--  This can only be called once and must be called");
+         Comment ("--  Prior to any other DBus methods.");
+         New_Line;
+
+         Large_Comment ("DBus Methods");
+         for SP of Pkg.Subprograms loop
+            Declare_Procedure (Function_Signature (SP));
+            New_Line;
+         end loop;
+      End_Package (+Pkg.Name);
+      --!pp on
    end Print;
 end Codegen.Specification;

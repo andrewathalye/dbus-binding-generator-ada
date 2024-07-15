@@ -2,226 +2,93 @@ with Type_Checking; use Type_Checking;
 
 with Shared; use Shared;
 
+with Codegen.Output; use Codegen.Output;
+
 package body Codegen.The_Body is
    -----------
    -- Print --
    -----------
-   procedure Print (Pkg : Ada_Package_Type; File : Ada.Text_IO.File_Type) is
-      use Ada.Text_IO;
-
-      --  Codegen tools
-      procedure Start_Container_For_Loop (Component : String; List : String);
-      procedure Start_Container_For_Loop (Component : String; List : String)
-      is
-      begin
-         Put_Line (File, "for " & Component & " of " & List & " loop");
-      end Start_Container_For_Loop;
-
-      procedure Start_Map_For_Loop (Cursor : String; Map : String);
-      procedure Start_Map_For_Loop (Cursor : String; Map : String)
-      is
-      begin
-         Put_Line (File, "for " & Cursor & " in " & Map & ".Iterate loop");
-      end Start_Map_For_Loop;
-
-      procedure Start_Index_For_Loop
-        (I : String; Range_1 : String; Range_2 : String);
-      procedure Start_Index_For_Loop
-        (I : String; Range_1 : String; Range_2 : String)
-      is
-      begin
-         Put_Line
-           (File, "for " & I & " in " & Range_1 & " .. " & Range_2 & " loop");
-      end Start_Index_For_Loop;
-
-      procedure End_For_Loop;
-      procedure End_For_Loop
-      is
-      begin
-         Put_Line (File, "end loop;");
-      end End_For_Loop;
-
-      procedure Declare_Code;
-      procedure Declare_Code
-      is
-      begin
-         Put_Line (File, "declare");
-      end Declare_Code;
-
-      procedure Begin_Code;
-      procedure Begin_Code
-      is
-      begin
-         Put_Line (File, "begin");
-      end Begin_Code;
-
-      procedure End_Code;
-      procedure End_Code
-      is
-      begin
-         Put_Line (File, "end;");
-      end End_Code;
-
-      procedure Use_Entity (Entity : String);
-      procedure Use_Entity (Entity : String)
-      is
-      begin
-         Put_Line (File, "use " & Entity & ";");
-      end Use_Entity;
-
-      procedure Renames_Entity (L, T, R : String);
-      procedure Renames_Entity (L, T, R : String)
-      is
-      begin
-         Put_Line (File, L & " : " & T & " renames " & R & ";");
-      end Renames_Entity;
-
-      procedure Use_Type (T : String);
-      procedure Use_Type (T : String)
-      is
-      begin
-         Put_Line (File, "use type " & T & ";");
-      end Use_Type;
-
-      procedure Declare_Entity
-        (Entity : String; EType : String; Value : String := "");
-      procedure Declare_Entity
-        (Entity : String; EType : String; Value : String := "")
-      is
-      begin
-         Put (File, Entity & " : " & EType);
-
-         if Value'Length /= 0 then
-            Put (File, " := " & Value);
-         end if;
-
-         Put_Line (File, ";");
-      end Declare_Entity;
-
-      procedure Assign (Entity : String; Expression : String);
-      procedure Assign (Entity : String; Expression : String)
-      is
-      begin
-         Put_Line (Entity & " := " & Expression & ";");
-      end Assign;
-
-      procedure Call (Expression : String);
-      procedure Call (Expression : String)
-      is
-      begin
-         Put_Line (File, Expression & ";");
-      end Call;
-
-      procedure Start_If (Expression : String);
-      procedure Start_If (Expression : String)
-      is
-      begin
-         Put_Line (File, "if " & Expression & " then");
-      end Start_If;
-
-      procedure End_If;
-      procedure End_If is
-      begin
-         Put_Line ("end if;");
-      end End_If;
-
-      procedure Start_Procedure (Signature : String);
-      procedure Start_Procedure (Signature : String)
-      is
-      begin
-         Put_Line (File, "procedure " & Signature & ";");
-         Put_Line (File, "procedure " & Signature & " is");
-      end Start_Procedure;
-
-      procedure End_Procedure (Name : String);
-      procedure End_Procedure (Name : String)
-      is
-      begin
-         Put_Line (File, "end " & Name & ";");
-      end End_Procedure;
-
-      procedure Start_Package_Body (Name : String);
-      procedure Start_Package_Body (Name : String)
-      is
-      begin
-         Put_Line (File, "package body " & Name & " is");
-      end Start_Package_Body;
-
-      procedure End_Package_Body (Name : String);
-      procedure End_Package_Body (Name : String)
-      is
-      begin
-         Put_Line (File, "end " & Name & ";");
-      end End_Package_Body;
-
-      procedure With_Entity (Entity : String);
-      procedure With_Entity (Entity : String) is
-      begin
-         Put_Line (File, "with " & Entity & ";");
-      end With_Entity;
-
+   procedure Print (Pkg : Ada_Package_Type) is
       --  Produce a value `DBus_Name` by binding `Ada_Name`
       --  This doesn’t declare either name (that is for the
       --  caller to do)
       procedure Bind_To_DBus_Inner
-        (TD : Ada_Type_Declaration;
-         Ada_Name : String;
-         DBus_Name : String);
+        (TD : Ada_Type_Declaration; Ada_Name : String; DBus_Name : String);
       procedure Bind_To_DBus_Inner
-        (TD : Ada_Type_Declaration;
-         Ada_Name : String;
-         DBus_Name : String)
+        (TD : Ada_Type_Declaration; Ada_Name : String; DBus_Name : String)
       is
       begin
          case TD.Kind is
-            --  !pp off
             --  DBus_Name := +Ada_Name
-            when Builtin_Kind =>
-               Assign
-                 (DBus_Name,
-                  "+" &
-                  Get_Library_Ada_Type (+TD.Type_Code) &
-                  " (" &
-                  Ada_Name & ")");
+            when Basic_Kind =>
+               --!pp off
+               Declare_Code;
+                  Use_Entity ("D_Bus.Arguments.Basic");
+                  Use_Entity ("D_Bus.Types");
+               Begin_Code;
+                  if Is_Stringlike (+TD.Type_Code) then
+                     --  Unbounded_String -> String
+                     --  -> Obj_Path -> Object_Path_Type
+                     if +TD.Type_Code = Object_Path then
+                        Assign
+                          (DBus_Name,
+                           "+(+Ada.Strings.Unbounded.To_String (" & Ada_Name &
+                           "))");
+                     else --  Unbounded_String -> String -> String_Type
+                        Assign
+                          (DBus_Name,
+                           "+Ada.Strings.Unbounded.To_String (" &
+                           Ada_Name & ")");
+                     end if;
+                  else
+                     Assign
+                       (DBus_Name,
+                        "+" & Get_Library_Ada_Type (+TD.Type_Code) & " (" &
+                        Ada_Name & ")");
+                  end if;
+               End_Code;
+               --!pp on
 
-            --  for C of Ada_Name => DBus_Name.Append (Bind (C))
+               --  for C of Ada_Name => DBus_Name.Append (Bind (C))
             when Array_Kind =>
+               --!pp off
                Start_Container_For_Loop ("C", Ada_Name);
                   Declare_Code;
                      Declare_Entity
-                       ("Obj",
+                       ("Arr_Obj",
                         Get_Library_DBus_Type (+TD.Array_Element_Type_Code));
                   Begin_Code;
                      Bind_To_DBus_Inner
-                       (TD        =>
-                          Pkg.Type_Declarations
-                            (TD.Array_Element_Type_Code),
-                        Ada_Name  => "C",
-                        DBus_Name => "Obj");
-                     Call (DBus_Name & ".Append (Obj)");
+                       (TD =>
+                           Pkg.Type_Declarations (TD.Array_Element_Type_Code),
+                        Ada_Name => "C", DBus_Name => "Arr_Obj");
+                     Call (DBus_Name & ".Append (Arr_Obj)");
                   End_Code;
                End_For_Loop;
+               --!pp on
 
-            --  for_struct M of Ada_Name => D_Bus_Name.Append (Bind (M))
+               --  for_struct M of Ada_Name => D_Bus_Name.Append (Bind (M))
             when Struct_Kind =>
+               --!pp off
                for SM of TD.Struct_Members loop
                   Declare_Code;
                      Declare_Entity
-                       ("Obj",
-                        Get_Library_DBus_Type (+SM.Type_Code));
+                       ("Struct_Obj", Get_Library_DBus_Type (+SM.Type_Code));
                   Begin_Code;
                      Bind_To_DBus_Inner
-                       (TD =>
-                           Pkg.Type_Declarations (SM.Type_Code),
-                        Ada_Name => Ada_Name & "." & (+SM.Name),
-                        DBus_Name => "Obj");
+                       (TD        => Pkg.Type_Declarations (SM.Type_Code),
+                        Ada_Name  => Ada_Name & "." & (+SM.Name),
+                        DBus_Name => "Struct_Obj");
 
-                     Call (DBus_Name & ".Append (Obj)");
+                     Call (DBus_Name & ".Append (Struct_Obj)");
                   End_Code;
                end loop;
+               --!pp on
 
-            --  for <K,V> of Ada_Name => D_Bus_Name.Append (<Bind(K),Bind(V)>)
-            when Dict_Kind =>
+               --  for <K,V> of Ada_Name =>
+               --  D_Bus_Name.Append (<Bind(K),Bind(V)>)
+            when Ordered_Dict_Kind | Hashed_Dict_Kind =>
+               --!pp off
                Start_Map_For_Loop ("Cursor", Ada_Name);
                   Declare_Code;
                      Declare_Entity
@@ -232,14 +99,14 @@ package body Codegen.The_Body is
                         Get_Library_DBus_Type (+TD.Dict_Element_Type_Code));
                   Begin_Code;
                      Bind_To_DBus_Inner
-                       (TD =>
+                       (TD        =>
                            Pkg.Type_Declarations (TD.Dict_Key_Type_Code),
-                        Ada_Name => "Cursor.Key",
+                        Ada_Name  => "Pkg_" & (+TD.Name) & ".Key (Cursor)",
                         DBus_Name => "Dict_Key");
                      Bind_To_DBus_Inner
                        (TD =>
                            Pkg.Type_Declarations (TD.Dict_Element_Type_Code),
-                        Ada_Name => "Cursor.Element",
+                        Ada_Name  => "Pkg_" & (+TD.Name) & ".Element (Cursor)",
                         DBus_Name => "Dict_Element");
                      Call
                        (DBus_Name &
@@ -247,148 +114,149 @@ package body Codegen.The_Body is
                         " (Dict_Key, Dict_Element))");
                   End_Code;
                End_For_Loop;
-            --  !pp on
+               --!pp on
+            when Variant_Kind =>
+               Assign (DBus_Name, Ada_Name);
          end case;
       end Bind_To_DBus_Inner;
 
       --  Bind Ada Argument to DBus
       procedure Bind_To_DBus (A : Ada_Argument_Type);
-      procedure Bind_To_DBus (A : Ada_Argument_Type)
-      is
+      procedure Bind_To_DBus (A : Ada_Argument_Type) is
          TD : constant Ada_Type_Declaration :=
-            Pkg.Type_Declarations (A.Type_Code);
+           Pkg.Type_Declarations (A.Type_Code);
       begin
          case TD.Kind is
-            --  !pp off
-            when Builtin_Kind =>
+            when Basic_Kind | Variant_Kind =>
+               --!pp off
                Declare_Code;
                   Use_Entity ("D_Bus.Arguments.Basic");
                   Declare_Entity
-                    ("Obj", Get_Library_DBus_Type (+A.Type_Code));
+                    ("Root_Obj", Get_Library_DBus_Type (+A.Type_Code));
                Begin_Code;
-                  Bind_To_DBus_Inner (TD, +A.Name, "Obj");
-                  Call ("Request_Args.Append (Obj)");
+                  Bind_To_DBus_Inner (TD, +A.Name, "Root_Obj");
+                  Call ("Request_Args.Append (Root_Obj)");
                End_Code;
+               --!pp on
             when Array_Kind =>
+               --!pp off
                Declare_Code;
                   Declare_Entity
-                    ("List",
-                     "D_Bus.Arguments.Containers.Array_Type");
+                    ("Root_List", "D_Bus.Arguments.Containers.Array_Type");
                Begin_Code;
-                  Bind_To_DBus_Inner (TD, +A.Name, "List");
-                  Call ("Request_Args.Append (List)");
+                  Bind_To_DBus_Inner (TD, +A.Name, "Root_List");
+                  Call ("Request_Args.Append (Root_List)");
                End_Code;
+               --!pp on
             when Struct_Kind =>
+               --!pp off
                Declare_Code;
                   Declare_Entity
-                    ("Struct", "D_Bus.Arguments.Containers.Struct_Type");
+                    ("Root_Struct", "D_Bus.Arguments.Containers.Struct_Type");
                Begin_Code;
-                  Bind_To_DBus_Inner (TD, +A.Name, "Struct");
-                  Call ("Request_Args.Append (Struct)");
+                  Bind_To_DBus_Inner (TD, +A.Name, "Root_Struct");
+                  Call ("Request_Args.Append (Root_Struct)");
                End_Code;
-            when Dict_Kind =>
+               --!pp on
+            when Ordered_Dict_Kind | Hashed_Dict_Kind =>
+               --!pp off
                Declare_Code;
                   Declare_Entity
-                    ("Dict", "D_Bus.Arguments.Containers.Array_Type");
+                    ("Root_Dict", "D_Bus.Arguments.Containers.Array_Type");
                Begin_Code;
-                  Bind_To_DBus_Inner (TD, +A.Name, "Dict");
-                  Call ("Request_Args.Append (Dict)");
+                  Bind_To_DBus_Inner (TD, +A.Name, "Root_Dict");
+                  Call ("Request_Args.Append (Root_Dict)");
                End_Code;
-            --  !pp on
+               --!pp on
          end case;
       end Bind_To_DBus;
 
       --  Binds a DBus Argument to Ada but provides no support code
       procedure Bind_To_Ada_Inner
-         (TD : Ada_Type_Declaration;
-          DBus_Name : String;
-          Ada_Name : String);
+        (TD : Ada_Type_Declaration; DBus_Name : String; Ada_Name : String);
       procedure Bind_To_Ada_Inner
-         (TD : Ada_Type_Declaration;
-          DBus_Name : String;
-          Ada_Name : String)
+        (TD : Ada_Type_Declaration; DBus_Name : String; Ada_Name : String)
       is
       begin
-         --  !pp off
          case TD.Kind is
             --  Ada_Name := +DBus_Name
-            when Builtin_Kind =>
-               Declare_Code;
-                  Use_Entity ("D_Bus.Arguments.Basic");
-               Begin_Code;
-                  --  Ada_Name := <Ada_Type> (D_Bus.Arguments.Basic.To_Ada
-                  --    (<DBus_Ada_Type> (DBus_Name)))
+            when Basic_Kind =>
+               --  Ada_Name := To_Unbounded_String
+               --    (To_String (String_Type (D_Bus_Name)))
+               if Is_Stringlike (+TD.Type_Code) then
                   Assign
                     (Ada_Name,
-                    (+TD.Name)
-                    & " (" &
-                    "D_Bus.Arguments.Basic.To_Ada (" &
-                    Get_Library_DBus_Type (+TD.Type_Code) &
-                    " (" & DBus_Name & ")))");
-               End_Code;
+                     "Ada.Strings.Unbounded.To_Unbounded_String (" &
+                     DBus_Name & ".To_String)");
 
-            --  for C of DBus_Name => Ada_Name.Append (Bind (C))
+                  --  Ada_Name := <Ada_Type> (D_Bus.Arguments.Basic.To_Ada
+                  --    (<DBus_Ada_Type> (DBus_Name)))
+               else
+                  Assign
+                    (Ada_Name,
+                     (+TD.Name) & " (" & "D_Bus.Arguments.Basic.To_Ada (" &
+                     Get_Library_DBus_Type (+TD.Type_Code) & " (" & DBus_Name &
+                     ")))");
+               end if;
+
+               --  for C of DBus_Name => Ada_Name.Append (Bind (C))
             when Array_Kind =>
-               Declare_Code;
-                  Renames_Entity
-                    ("DBus_Array",
-                     "D_Bus.Arguments.Containers.Array_Type",
-                     "D_Bus.Arguments.Containers.Array_Type (" &
-                     DBus_Name & ")");
-               Begin_Code;
-                  Start_Index_For_Loop ("I", "1", "DBus_Array.Get_Count");
-                     Declare_Code;
-                        --  DBus Element
-                        Declare_Entity
-                          ("Obj",
-                           Get_Library_DBus_Type
-                             (+TD.Array_Element_Type_Code));
+               --!pp off
+               Start_Index_For_Loop ("I", "1", DBus_Name & ".Get_Count");
+                  Declare_Code;
+                     --  DBus Element
+                     Declare_Entity
+                       ("Arr_Obj",
+                        Get_Library_DBus_Type (+TD.Array_Element_Type_Code));
 
-                        --  Ada Element
-                        Declare_Entity
-                          ("Obj_Ada",
-                           +Pkg.Type_Declarations
-                             (TD.Array_Element_Type_Code).Name);
-                     Begin_Code;
-                        Assign
-                          ("Obj",
-                          Get_Library_DBus_Type (+TD.Array_Element_Type_Code) &
-                          " (DBus_Array.Get_Element (I))");
-                        Bind_To_Ada_Inner (
-                           TD =>
-                              Pkg.Type_Declarations
-                                (TD.Array_Element_Type_Code),
-                           DBus_Name => "Obj",
-                           Ada_Name => "Obj_Ada");
-                        Call (Ada_Name & ".Append (Obj_Ada)");
-                     End_Code;
-                  End_For_Loop;
-               End_Code;
+                     --  Ada Element
+                     Declare_Entity
+                       ("Arr_Obj_Ada",
+                        +Pkg.Type_Declarations
+                          (TD.Array_Element_Type_Code).Name);
+                  Begin_Code;
+                     Assign
+                       ("Arr_Obj",
+                        Get_Library_DBus_Type
+                          (+TD.Array_Element_Type_Code) & " (" &
+                        DBus_Name & ".Get_Element (I))");
+                     Bind_To_Ada_Inner
+                       (TD =>
+                           Pkg.Type_Declarations (TD.Array_Element_Type_Code),
+                        DBus_Name => "Arr_Obj", Ada_Name => "Arr_Obj_Ada");
+                     Call (Ada_Name & ".Append (Arr_Obj_Ada)");
+                  End_Code;
+               End_For_Loop;
+               --!pp on
 
-            --  for M of DBus_Name => Ada_Name.<Member_I> := Bind (M)
+               --  for M of DBus_Name => Ada_Name.<Member_I> := Bind (M)
             when Struct_Kind =>
+               --!pp off
                for I in 1 .. Positive (TD.Struct_Members.Length) loop
                   Declare_Code;
                      Declare_Entity
                        ("Element",
-                         +Pkg.Type_Declarations
-                           (TD.Struct_Members (I).Type_Code).Name);
+                        +Pkg.Type_Declarations
+                          (TD.Struct_Members (I).Type_Code).Name);
                   Begin_Code;
-                     Bind_To_Ada_Inner (
-                        TD =>
-                           Pkg.Type_Declarations
-                             (TD.Struct_Members (I).Type_Code),
+                     Bind_To_Ada_Inner
+                       (TD        =>
+                          Pkg.Type_Declarations
+                            (TD.Struct_Members (I).Type_Code),
                         DBus_Name =>
                            DBus_Name & ".Get_Element (" & I'Image & ")",
-                        Ada_Name => "Element");
+                        Ada_Name  => "Element");
                      Assign
                        (Ada_Name & "." & (+TD.Struct_Members (I).Name),
                         "Element");
                   End_Code;
                end loop;
+               --!pp on
 
-            --  for <K,V> of DBus_Name => Ada_Name.Insert (Bind (K), Bind (V))
-            when Dict_Kind =>
+               --  for <K,V> of DBus_Name =>
+               --  Ada_Name.Insert (Bind (K), Bind (V))
+            when Ordered_Dict_Kind | Hashed_Dict_Kind =>
+               --!pp off
                Start_Index_For_Loop ("I", "1", DBus_Name & ".Get_Count");
                   Declare_Code;
                      Declare_Entity
@@ -402,99 +270,111 @@ package body Codegen.The_Body is
                         +Pkg.Type_Declarations
                           (TD.Dict_Element_Type_Code).Name);
                   Begin_Code;
-                     Assign ("Dict_Entry", DBus_Name & ".Get_Element (I)");
-                     Bind_To_Ada_Inner (
-                        Pkg.Type_Declarations (TD.Dict_Key_Type_Code),
-                        "Dict_Entry.Get_Key",
-                        "Dict_Key");
-                     Bind_To_Ada_Inner (
-                        Pkg.Type_Declarations (TD.Dict_Element_Type_Code),
-                        "Dict_Entry.Get_Element",
+                     Assign
+                       ("Dict_Entry",
+                        "D_Bus.Arguments.Containers.Dict_Entry_Type ("
+                        & DBus_Name & ".Get_Element (I))");
+                     Bind_To_Ada_Inner
+                       (Pkg.Type_Declarations (TD.Dict_Key_Type_Code),
+                        "Dict_Entry.Get_Key", "Dict_Key");
+                     Bind_To_Ada_Inner
+                       (Pkg.Type_Declarations (TD.Dict_Element_Type_Code),
+                        Get_Library_DBus_Type (+TD.Dict_Element_Type_Code) &
+                        " (" & "Dict_Entry.Get_Value)",
                         "Dict_Element");
                      Call (Ada_Name & ".Insert (Dict_Key, Dict_Element)");
                   End_Code;
                End_For_Loop;
+               --!pp on
+
+            when Variant_Kind =>
+               Assign
+                 (Ada_Name,
+                  Get_Library_DBus_Type (+TD.Type_Code) & "(" & DBus_Name &
+                  ")");
          end case;
-         --  !pp on
       end Bind_To_Ada_Inner;
 
       --  Bind DBus Argument to Ada
       procedure Bind_To_Ada (A : Ada_Argument_Type; Arg_Index : Positive);
-      procedure Bind_To_Ada (A : Ada_Argument_Type; Arg_Index : Positive)
-      is
+      procedure Bind_To_Ada (A : Ada_Argument_Type; Arg_Index : Positive) is
       begin
          Bind_To_Ada_Inner
            (Pkg.Type_Declarations (A.Type_Code),
             DBus_Name =>
-               "Reply_Args.Get_Element (" & Arg_Index'Image & ")",
-            Ada_Name => +A.Name);
+              Get_Library_DBus_Type (+A.Type_Code) &
+              " (Reply_Args.Get_Element (" & Arg_Index'Image & "))",
+            Ada_Name  => +A.Name);
       end Bind_To_Ada;
    begin
+      --!pp off
       --  Preamble
       With_Entity ("D_Bus.Connection");
       With_Entity ("D_Bus.Types");
       Use_Type ("D_Bus.Types.Obj_Path");
       With_Entity ("D_Bus.Arguments.Basic");
-      With_Entity ("D_Bus.Arguments.Containers");
-      New_Line (File);
+      New_Line;
 
       --  Package
-      --  !pp off
       Start_Package_Body (+Pkg.Name);
          --  Globals
          Declare_Entity ("Connection", "D_Bus.Connection.Connection_Type");
          Declare_Entity ("Connected", "Boolean", "False");
          Declare_Entity
-           ("Destination",
-            "constant String",
-            ASCII.Quotation & ASCII.Quotation);
+           ("Destination", "Ada.Strings.Unbounded.Unbounded_String");
          Declare_Entity
-           ("Path",
-            "constant D_Bus.Types.Obj_Path",
+           ("Path", "constant D_Bus.Types.Obj_Path",
             "+" & ASCII.Quotation & (+Pkg.Node) & ASCII.Quotation);
          Declare_Entity
-           ("Iface",
-            "constant String",
+           ("Iface", "constant String",
             ASCII.Quotation & (+Pkg.Iface) & ASCII.Quotation);
-         New_Line (File);
+         New_Line;
 
-         --  Private
-         Start_Procedure ("Connect");
+         --  Predefined
+         Start_Procedure ("Connect (Dest : String)");
          Begin_Code;
             Start_If ("not Connected");
                Assign ("Connection", "D_Bus.Connection.Connect");
+               Assign
+                 ("Destination",
+                  "Ada.Strings.Unbounded.To_Unbounded_String (Dest)");
                Assign ("Connected", "True");
+            Start_Else;
+               Raise_Exception ("Already_Connected");
             End_If;
          End_Procedure ("Connect");
 
          --  Subprograms
          for SP of Pkg.Subprograms loop
-            New_Line (File);
-            Print_Signature (SP, File);
-            Put_Line (File, "is");
+            New_Line;
+            Start_Procedure (Function_Signature (SP));
                Declare_Entity
                  ("Request_Args", "D_Bus.Arguments.Argument_List_Type");
                Declare_Entity
                  ("Reply_Args", "D_Bus.Arguments.Argument_List_Type");
             Begin_Code;
-               Call ("Connect");
-               New_Line (File);
+               Start_If ("not Connected");
+                  Raise_Exception ("Not_Connected", (+SP.Name));
+               End_If;
+               New_Line;
 
                --  Bind each in argument
                for A of SP.Arguments loop
                   if +A.Direction = "in" then
                      Bind_To_DBus (A);
-                     New_Line (File);
+                     New_Line;
                   end if;
                end loop;
 
                --  The method call itself
-               Assign (
-                  Entity => "Reply_Args",
-                  Expression => "D_Bus.Connection.Call_Blocking " &
-                  "(Connection, Destination, Path, Iface, " &
-                  ASCII.Quotation & (+SP.Name) & ASCII.Quotation &
-                  ", D_Bus.Connection.Default_Timeout, Request_Args)");
+               Assign
+                 (Entity     => "Reply_Args",
+                  Expression =>
+                    "D_Bus.Connection.Call_Blocking " &
+                    "(Connection, Ada.Strings.Unbounded.To_String " &
+                    "(Destination), Path, Iface, "
+                    & ASCII.Quotation & (+SP.Name) & ASCII.Quotation &
+                    ", D_Bus.Connection.Default_Timeout, Request_Args)");
 
                --  Bind each out argument
                declare
@@ -502,7 +382,7 @@ package body Codegen.The_Body is
                begin
                   for A of SP.Arguments loop
                      if +A.Direction = "out" then
-                        New_Line (File);
+                        New_Line;
                         Bind_To_Ada (A, Index);
 
                         Index := Index + 1;
@@ -511,7 +391,7 @@ package body Codegen.The_Body is
                end;
             End_Procedure (+SP.Name);
          end loop;
-      End_Package_Body (+Pkg.Name);
-      --  !pp on
+      End_Package (+Pkg.Name);
+      --!pp on
    end Print;
 end Codegen.The_Body;
