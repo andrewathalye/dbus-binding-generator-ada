@@ -58,4 +58,9 @@
 
       <annotation name="test.annotation" value="Test"/>
    </interface>
+   <node name="/test/interface/Interior">
+      <interface name="test.interface.Interior">
+         <method name="InteriorMethod"/>
+      </interface>
+   </node>
 </node>

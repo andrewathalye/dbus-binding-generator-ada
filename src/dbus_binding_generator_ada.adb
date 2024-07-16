@@ -156,14 +156,30 @@ begin
    -------------------
    -- Generate code --
    -------------------
-   for I of Node.Interfaces loop
-      declare
-         Pkg : constant Codegen.Ada_Package_Type :=
-           Codegen.Create_Package (Node.Name, I);
+   declare
+      procedure Recurse_Node (LN : in out Parsing.Node_Type);
+      procedure Recurse_Node (LN : in out Parsing.Node_Type) is
       begin
-         Codegen.Client_Spec.Print (Pkg);
-         Codegen.Client_Body.Print (Pkg);
-      end;
-   end loop;
-   Put_Debug ("Generation complete");
+         for N of LN.Child_Nodes loop
+            Recurse_Node (N.all);
+            Parsing.Free (N);
+         end loop;
+
+         for I of LN.Interfaces loop
+            declare
+               Pkg : constant Codegen.Ada_Package_Type :=
+                 Codegen.Create_Package (LN.Name, I);
+            begin
+               Codegen.Client_Spec.Print (Pkg);
+               Codegen.Client_Body.Print (Pkg);
+
+               Put_Debug ("Generated interface " & (+I.Name));
+            end;
+         end loop;
+
+         Put_Debug ("Generated node " & (+LN.Name));
+      end Recurse_Node;
+   begin
+      Recurse_Node (Node);
+   end;
 end DBus_Binding_Generator_Ada;

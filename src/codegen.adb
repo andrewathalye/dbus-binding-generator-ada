@@ -174,20 +174,37 @@ package body Codegen is
      (Node : Ada.Strings.Unbounded.Unbounded_String; I : Interface_Type)
       return Ada_Package_Type
    is
-      Name : String := +I.Name;
+      use Ada.Strings.Unbounded;
+
+      Node_Name : String := +Node;
+      Interface_Name : String := +I.Name;
 
       Pkg : Ada_Package_Type;
    begin
       ------------
       -- Fixups --
       ------------
-      for C of Name loop
+      if Node_Name = "/" then
+         Append (Pkg.Name, "Root_");
+      else
+         for C of Node_Name loop
+            if C = '/' then
+               C := '_';
+            end if;
+         end loop;
+
+         Append
+           (Pkg.Name, Node_Name (Node_Name'First + 1 .. Node_Name'Last) & "_");
+      end if;
+
+      for C of Interface_Name loop
          if C = '.' then
             C := '_';
          end if;
       end loop;
 
-      Pkg.Name  := +Name;
+      Append (Pkg.Name, Interface_Name);
+
       Pkg.Node  := Node;
       Pkg.Iface := I.Name;
 

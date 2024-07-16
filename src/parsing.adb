@@ -97,8 +97,8 @@ package body Parsing is
    function Process_Node (Node : DOM.Core.Node) return Node_Type is
       Node_Name : Ada.Strings.Unbounded.Unbounded_String;
 
-      Nodes          : DOM.Core.Node_List;
-      Interfaces     : DOM.Core.Node_List;
+      Children : DOM.Core.Node_List;
+      Nodes_Ada      : Node_List;
       Interfaces_Ada : Interface_List;
    begin
       --  Read name
@@ -112,20 +112,20 @@ package body Parsing is
 
       Put_Debug ("Node: " & (+Node_Name));
 
-      Nodes      := DOM.Core.Elements.Get_Elements_By_Tag_Name (Node, "node");
-      Interfaces :=
-        DOM.Core.Elements.Get_Elements_By_Tag_Name (Node, "interface");
-
-      for NI in 2 .. DOM.Core.Nodes.Length (Nodes) loop
-         raise Program_Error with "Nested nodes not currently supported";
-         --         Process_Node (DOM.Core.Nodes.Item (Nodes, NI - 1));
+      --  Ugly, but the only way to iterate over direct children
+      Children := DOM.Core.Nodes.Child_Nodes (Node);
+      for NI in 1 .. DOM.Core.Nodes.Length (Children) loop
+         declare
+            N : DOM.Core.Node renames DOM.Core.Nodes.Item (Children, NI - 1);
+         begin
+            if DOM.Core.Elements.Get_Tag_Name (N) = "node" then
+               Nodes_Ada.Append (new Node_Type'(Process_Node (N)));
+            elsif DOM.Core.Elements.Get_Tag_Name (N) = "interface" then
+               Interfaces_Ada.Append (Process_Interface (N));
+            end if;
+         end;
       end loop;
 
-      for II in 1 .. DOM.Core.Nodes.Length (Interfaces) loop
-         Interfaces_Ada.Append
-           (Process_Interface (DOM.Core.Nodes.Item (Interfaces, II - 1)));
-      end loop;
-
-      return (Node_Name, Interfaces_Ada);
+      return (Node_Name, Nodes_Ada, Interfaces_Ada);
    end Process_Node;
 end Parsing;
