@@ -50,6 +50,11 @@
          <arg name="dict_arr_struct" type="a{oa(gsv)}" direction="out"/>
       </method>
 
+      <!-- Test reserved names -->
+      <method name="in">
+         <arg name="Interfaces" type="s"/>
+      </method>
+
       <signal name="TestSignal">
          <arg name="targ" type="s"/>
       </signal>
@@ -58,6 +63,7 @@
 
       <annotation name="test.annotation" value="Test"/>
    </interface>
+
    <node name="/test/interface/Interior">
       <interface name="test.interface.Interior">
          <method name="InteriorMethod"/>

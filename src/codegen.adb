@@ -1,3 +1,5 @@
+with Codegen.Output;
+
 with Parsing; use Parsing;
 
 with Type_Checking; use Type_Checking;
@@ -159,6 +161,9 @@ package body Codegen is
       LI : constant Natural  := M.Arguments.Last_Index;
    begin
       for I in FI .. LI loop
+         M.Arguments (I).Name := +Codegen.Output.Sanitise_Name
+           (+M.Arguments (I).Name);
+
          --  Give a unique name to unnamed parameters
          if M.Arguments (I).Name = Null_Unbounded_String then
             M.Arguments (I).Name :=
