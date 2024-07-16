@@ -1,6 +1,9 @@
 with DOM.Core.Elements;
 with DOM.Core.Nodes;
 
+with Ada.Strings.Unbounded;
+use type Ada.Strings.Unbounded.Unbounded_String;
+
 with Shared; use Shared;
 with Debug;  use Debug;
 
@@ -9,7 +12,8 @@ package body Parsing is
    function Process_Argument (Node : DOM.Core.Node) return Argument_Type is
      (+DOM.Core.Elements.Get_Attribute (Node, "name"),
       +DOM.Core.Elements.Get_Attribute (Node, "type"),
-      +DOM.Core.Elements.Get_Attribute (Node, "direction"));
+      (if +DOM.Core.Elements.Get_Attribute (Node, "direction") = "in" then DIn
+       else DOut));
 
    --  D_Bus method
    function Process_Method (Node : DOM.Core.Node) return Method_Type;
@@ -34,6 +38,18 @@ package body Parsing is
       return (Method_Name, Arguments);
    end Process_Method;
 
+   --  D_Bus property
+   function Process_Property (Node : DOM.Core.Node) return Property_Type;
+   function Process_Property (Node : DOM.Core.Node) return Property_Type is
+     ((Name      => +DOM.Core.Elements.Get_Attribute (Node, "name"),
+       Type_Code => +DOM.Core.Elements.Get_Attribute (Node, "type"),
+       PAccess   =>
+         (if +DOM.Core.Elements.Get_Attribute (Node, "access") = "read" then
+            Read
+          elsif +DOM.Core.Elements.Get_Attribute (Node, "access") = "write"
+          then Write
+          else Readwrite)));
+
    --  D_Bus interface
    function Process_Interface (Node : DOM.Core.Node) return Interface_Type;
    function Process_Interface (Node : DOM.Core.Node) return Interface_Type is
@@ -41,6 +57,12 @@ package body Parsing is
 
       Methods     : DOM.Core.Node_List;
       Methods_Ada : Method_List;
+
+      Signals     : DOM.Core.Node_List;
+      Signals_Ada : Method_List;
+
+      Properties     : DOM.Core.Node_List;
+      Properties_Ada : Property_List;
    begin
       --  Read name
       Interface_Name := +DOM.Core.Elements.Get_Attribute (Node, "name");
@@ -48,13 +70,27 @@ package body Parsing is
       Put_Debug ("Interface: " & (+Interface_Name));
 
       Methods := DOM.Core.Elements.Get_Elements_By_Tag_Name (Node, "method");
+      Signals := DOM.Core.Elements.Get_Elements_By_Tag_Name (Node, "signal");
+      Properties :=
+        DOM.Core.Elements.Get_Elements_By_Tag_Name (Node, "property");
 
       for MI in 1 .. DOM.Core.Nodes.Length (Methods) loop
          Methods_Ada.Append
            (Process_Method (DOM.Core.Nodes.Item (Methods, MI - 1)));
       end loop;
 
-      return (Interface_Name, Methods_Ada);
+      --  A Signal is identical to a Method in terms of representation
+      for SI in 1 .. DOM.Core.Nodes.Length (Signals) loop
+         Signals_Ada.Append
+           (Process_Method (DOM.Core.Nodes.Item (Signals, SI - 1)));
+      end loop;
+
+      for PI in 1 .. DOM.Core.Nodes.Length (Properties) loop
+         Properties_Ada.Append
+           (Process_Property (DOM.Core.Nodes.Item (Properties, PI - 1)));
+      end loop;
+
+      return (Interface_Name, Methods_Ada, Signals_Ada, Properties_Ada);
    end Process_Interface;
 
    --  D_Bus node not to be confused with XMLAda node
@@ -67,6 +103,12 @@ package body Parsing is
    begin
       --  Read name
       Node_Name := +DOM.Core.Elements.Get_Attribute (Node, "name");
+
+      if Node_Name = Ada.Strings.Unbounded.Null_Unbounded_String then
+         raise Program_Error
+           with "Unnamed root nodes are not supported." &
+           " Please name the node and rebind.";
+      end if;
 
       Put_Debug ("Node: " & (+Node_Name));
 

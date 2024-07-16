@@ -19,8 +19,9 @@ with Schema.Validators;
 --  Local Codegen
 with Parsing;
 with Codegen;
-with Codegen.Specification;
-with Codegen.The_Body;
+
+with Codegen.Client_Spec;
+with Codegen.Client_Body;
 
 --  Utils
 with Shared; use Shared;
@@ -150,6 +151,7 @@ begin
    --  Note: The document must be valid by definition
    Node := Parsing.Process_Node (DOM.Core.Documents.Get_Element (Document));
    DOM.Core.Nodes.Free (Document);
+   Put_Debug ("Parsed nodes");
 
    -------------------
    -- Generate code --
@@ -159,8 +161,9 @@ begin
          Pkg : constant Codegen.Ada_Package_Type :=
            Codegen.Create_Package (Node.Name, I);
       begin
-         Codegen.Specification.Print (Pkg);
-         Codegen.The_Body.Print (Pkg);
+         Codegen.Client_Spec.Print (Pkg);
+         Codegen.Client_Body.Print (Pkg);
       end;
    end loop;
+   Put_Debug ("Generation complete");
 end DBus_Binding_Generator_Ada;

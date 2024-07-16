@@ -150,40 +150,22 @@ package body Codegen is
       end case;
    end Generate_Ada_Types;
 
-   --  Create an Ada argument for a DBus argument
-   function Create_Argument (A : Argument_Type) return Ada_Argument_Type is
-     (Name => A.Name, Type_Code => A.AType, Direction => A.Direction);
-
-   --  Create a subprogram for a method
-   function Create_Subprogram (M : Method_Type) return Ada_Subprogram_Type;
-   function Create_Subprogram (M : Method_Type) return Ada_Subprogram_Type is
+   --  Ensure that all Method parameters are named
+   procedure Name_Parameters (M : in out Method_Type);
+   procedure Name_Parameters (M : in out Method_Type) is
       use Ada.Strings.Unbounded;
 
       FI : constant Positive := M.Arguments.First_Index;
-      LI : constant Positive := M.Arguments.Last_Index;
-
-      Sp : Ada_Subprogram_Type;
+      LI : constant Natural  := M.Arguments.Last_Index;
    begin
-      Sp.Name := M.Name;
-
       for I in FI .. LI loop
-         declare
-            Arg : Ada_Argument_Type;
-         begin
-            Arg := Create_Argument (M.Arguments (I));
-
-            --  Give a unique name to unnamed parameters
-            if Arg.Name = Null_Unbounded_String then
-               Arg.Name :=
-                 +("Parameter_" & I'Image (I'Image'First + 1 .. I'Image'Last));
-            end if;
-
-            Sp.Arguments.Append (Arg);
-         end;
+         --  Give a unique name to unnamed parameters
+         if M.Arguments (I).Name = Null_Unbounded_String then
+            M.Arguments (I).Name :=
+              +("Parameter_" & I'Image (I'Image'First + 1 .. I'Image'Last));
+         end if;
       end loop;
-
-      return Sp;
-   end Create_Subprogram;
+   end Name_Parameters;
 
    --------------------
    -- Create_Package --
@@ -214,16 +196,42 @@ package body Codegen is
       -----------
       for M of I.Methods loop
          for A of M.Arguments loop
-            Generate_Ada_Types (Pkg.Type_Declarations, A.AType);
+            Generate_Ada_Types (Pkg.Type_Declarations, A.Type_Code);
          end loop;
+      end loop;
+
+      for S of I.Signals loop
+         for A of S.Arguments loop
+            Generate_Ada_Types (Pkg.Type_Declarations, A.Type_Code);
+         end loop;
+      end loop;
+
+      for P of I.Properties loop
+         Generate_Ada_Types (Pkg.Type_Declarations, P.Type_Code);
       end loop;
 
       -----------------
       -- Subprograms --
       -----------------
       for M of I.Methods loop
-         Pkg.Subprograms.Append (Create_Subprogram (M));
+         declare
+            M2 : Method_Type := M;
+         begin
+            Name_Parameters (M2);
+            Pkg.Methods.Append (M2);
+         end;
       end loop;
+
+      for S of I.Signals loop
+         declare
+            S2 : Method_Type := S;
+         begin
+            Name_Parameters (S2);
+            Pkg.Signals.Append (S2);
+         end;
+      end loop;
+
+      Pkg.Properties := I.Properties;
 
       return Pkg;
    end Create_Package;

@@ -3,20 +3,6 @@ with Ada.Strings.Unbounded;
 with Shared; use Shared;
 
 package body Type_Checking is
-   --  Ensure a DBus type is valid
-   procedure Validate_Type (T : String);
-   procedure Validate_Type (T : String) is
-   begin
-      --  Excluding '{' since it can’t start a type
-      if not
-        (T (T'First) in
-           'y' | 'b' | 'n' | 'q' | 'i' | 'u' | 'x' | 't' | 'd' | 's' | 'o'
-           | 'g' | 'a' | '(' | 'v' | 'h')
-      then
-         raise Program_Error with "Invalid type: " & T;
-      end if;
-   end Validate_Type;
-
    --------------
    -- Is_Basic --
    --------------
@@ -129,8 +115,6 @@ package body Type_Checking is
    function Get_Ada_Type (T : String) return String is
       AType_First : constant Character := T (T'First);
    begin
-      Validate_Type (T);
-
       case AType_First is
          when 'y' =>
             return "Interfaces.Unsigned_8";
@@ -181,8 +165,6 @@ package body Type_Checking is
    function Get_Library_DBus_Type (T : String) return String is
       AType_First : constant Character := T (T'First);
    begin
-      Validate_Type (T);
-
       case AType_First is
          when 'y' =>
             return "D_Bus.Arguments.Basic.Byte_Type";

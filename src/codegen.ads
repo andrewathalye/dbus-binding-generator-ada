@@ -7,8 +7,8 @@ private with Ada.Containers.Vectors;
 private with Ada.Containers.Hashed_Maps;
 
 package Codegen is
-   type Ada_Subprogram_Type is private;
    type Ada_Package_Type is private;
+   type Ada_Type_Declaration is private;
 
    function Create_Package
      (Node : Ada.Strings.Unbounded.Unbounded_String;
@@ -58,29 +58,14 @@ private
       Equivalent_Keys => "=");
    subtype Ada_Type_Declaration_Map is ATDM.Map;
 
-   --  Packages, Subprograms, Arguments
-   type Ada_Argument_Type is record
-      Name      : Ada.Strings.Unbounded.Unbounded_String;
-      Type_Code : Ada.Strings.Unbounded.Unbounded_String;
-      Direction : Ada.Strings.Unbounded.Unbounded_String;
-   end record;
-
-   package AATL is new Ada.Containers.Vectors (Positive, Ada_Argument_Type);
-   subtype Ada_Argument_Type_List is AATL.Vector;
-
-   type Ada_Subprogram_Type is record
-      Name      : Ada.Strings.Unbounded.Unbounded_String;
-      Arguments : Ada_Argument_Type_List;
-   end record;
-
-   package ASTL is new Ada.Containers.Vectors (Positive, Ada_Subprogram_Type);
-   subtype Ada_Subprogram_Type_List is ASTL.Vector;
-
+   --  Packages
    type Ada_Package_Type is record
       Name              : Ada.Strings.Unbounded.Unbounded_String;
       Node              : Ada.Strings.Unbounded.Unbounded_String;
       Iface             : Ada.Strings.Unbounded.Unbounded_String;
       Type_Declarations : Ada_Type_Declaration_Map;
-      Subprograms       : Ada_Subprogram_Type_List;
+      Methods           : Parsing.Method_List;
+      Signals           : Parsing.Method_List;
+      Properties        : Parsing.Property_List;
    end record;
 end Codegen;

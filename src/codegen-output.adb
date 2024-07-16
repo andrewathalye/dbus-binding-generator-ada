@@ -110,6 +110,18 @@ package body Codegen.Output is
       Put_Line (File, "procedure " & Signature & ";");
    end Declare_Procedure;
 
+   procedure Declare_Function (Signature : String; Return_Type : String) is
+   begin
+      Put_Line
+        (File, "function " & Signature & " return " & Return_Type & ";");
+   end Declare_Function;
+
+   procedure Start_Function (Signature : String; Return_Type : String) is
+   begin
+      Put_Line
+        (File, "function " & Signature & " return " & Return_Type & " is");
+   end Start_Function;
+
    procedure Start_Procedure (Signature : String) is
    begin
       Put_Line (File, "procedure " & Signature & " is");
@@ -148,24 +160,28 @@ package body Codegen.Output is
    ------------------------
    -- Function_Signature --
    ------------------------
-   function Function_Signature (SP : Ada_Subprogram_Type) return String is
+   function Function_Signature (M : Parsing.Method_Type) return String is
       use Ada.Strings.Unbounded;
       Buf : Unbounded_String;
+
+      function To_Ada_Direction (D : Parsing.DBus_Direction) return String is
+        (case D is when Parsing.DIn => "in", when Parsing.DOut => "out");
    begin
-      Append (Buf, +SP.Name);
-      if not SP.Arguments.Is_Empty then
+      Append (Buf, +M.Name);
+      if not M.Arguments.Is_Empty then
          Append (Buf, " (");
 
          declare
-            SPA : Ada_Argument_Type_List renames SP.Arguments;
-            FI  : constant Positive := SPA.First_Index;
-            LI  : constant Positive := SPA.Last_Index;
+            MA : Parsing.Argument_List renames M.Arguments;
+            FI : constant Positive := MA.First_Index;
+            LI : constant Positive := MA.Last_Index;
          begin
             for I in FI .. LI loop
                Append
                  (Buf,
-                  (+SPA (I).Name) & " : " & (+SPA (I).Direction) & " " &
-                  (Get_Ada_Type (+SPA (I).Type_Code)));
+                  (+MA (I).Name) & " : " &
+                  To_Ada_Direction (MA (I).Direction) & " " &
+                  (Get_Ada_Type (+MA (I).Type_Code)));
 
                if I /= LI then
                   Append (Buf, "; ");
@@ -222,4 +238,9 @@ package body Codegen.Output is
    begin
       Put_Line (File, "end record;");
    end End_Record;
+
+   procedure Return_Entity (Name : String) is
+   begin
+      Put_Line (File, "return " & Name & ";");
+   end Return_Entity;
 end Codegen.Output;

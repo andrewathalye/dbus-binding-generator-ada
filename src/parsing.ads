@@ -4,11 +4,14 @@ with Ada.Strings.Unbounded;
 with DOM.Core;
 
 package Parsing is
+   type DBus_Direction is (DIn, DOut);
+   type DBus_Access is (Read, Write, Readwrite);
+
    --  TODO annotations are not processed
    type Argument_Type is record
       Name      : Ada.Strings.Unbounded.Unbounded_String;
-      AType     : Ada.Strings.Unbounded.Unbounded_String;
-      Direction : Ada.Strings.Unbounded.Unbounded_String;
+      Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+      Direction : DBus_Direction;
    end record;
 
    package Argument_Lists is new Ada.Containers.Vectors
@@ -23,9 +26,21 @@ package Parsing is
    package Method_Lists is new Ada.Containers.Vectors (Positive, Method_Type);
    subtype Method_List is Method_Lists.Vector;
 
+   type Property_Type is record
+      Name      : Ada.Strings.Unbounded.Unbounded_String;
+      Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+      PAccess   : DBus_Access;
+   end record;
+
+   package Property_Lists is new Ada.Containers.Vectors
+     (Positive, Property_Type);
+   subtype Property_List is Property_Lists.Vector;
+
    type Interface_Type is record
-      Name    : Ada.Strings.Unbounded.Unbounded_String;
-      Methods : Method_List;
+      Name       : Ada.Strings.Unbounded.Unbounded_String;
+      Methods    : Method_List;
+      Signals    : Method_List;
+      Properties : Property_List;
    end record;
 
    package Interface_Lists is new Ada.Containers.Vectors

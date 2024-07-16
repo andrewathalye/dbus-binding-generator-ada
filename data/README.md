@@ -1,11 +1,13 @@
-Test Data
-=========
+Dev Data
+========
+
+`introspect.xsd` is the schema used to validate specs.
 
 Real-World Testing
 ------------------
-hyprwatch.xml is the XML spec used for Hyprwatch v1.4
+`real/` contains some real specs obtained from apps.
 
 Comprehensive Testing
 ---------------------
-test.xml contains all possible DBus data types
-test_dbusada.xml contains the types supported by DBus_Ada
+`test/` contains some specs used for comprehensive testing.
+They are also used to validate the XSD

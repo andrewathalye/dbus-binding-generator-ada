@@ -1,20 +1,22 @@
 <node name="/test/node">
    <interface name="test.interface">
-      <method name="TestBasicTypesIn">
-         <arg type="y" direction="in"/>
-         <arg type="b" direction="in"/>
-         <arg type="n" direction="in"/>
-         <arg type="q" direction="in"/>
-         <arg type="i" direction="in"/>
-         <arg type="u" direction="in"/>
-         <arg type="x" direction="in"/>
-         <arg type="t" direction="in"/>
-         <arg type="d" direction="in"/>
-         <arg type="s" direction="in"/>
-         <arg type="o" direction="in"/>
-         <arg type="g" direction="in"/>
-         <arg type="v" direction="in"/>
-         <arg type="h" direction="in"/>
+      <method name="TestEmpty"/>
+
+      <method name="TestBasicTypes">
+         <arg type="y"/>
+         <arg type="b"/>
+         <arg type="n"/>
+         <arg type="q"/>
+         <arg type="i"/>
+         <arg type="u"/>
+         <arg type="x"/>
+         <arg type="t"/>
+         <arg type="d"/>
+         <arg type="s"/>
+         <arg type="o"/>
+         <arg type="g"/>
+         <arg type="v"/>
+         <arg type="h"/>
       </method>
 
       <method name="TestBasicTypesOut">
@@ -35,18 +37,16 @@
       </method>
 
       <method name="TestComplexTypes">
-         <arg name="simple_arr" type="as" direction="in"/>
-         <arg name="simple_dict" type="a{sv}" direction="in"/>
-         <arg name="arr_struct" type="a(ts)" direction="in"/>
-         <arg name="dict_struct" type="a{t(sv)}" direction="in"/>
-         <arg name="dict_arr_struct" type="a{oa(gsv)}" direction="in"/>
+         <arg name="simple_struct" type="(s)"/>
+         <arg name="simple_arr" type="as"/>
+         <arg name="simple_dict" type="a{sv}"/>
+         <arg name="dict_arr_struct" type="a{oa(gsv)}"/>
       </method>
 
       <method name="TestComplexTypesOut">
+         <arg name="simple_struct" type="(s)"/>
          <arg name="simple_arr" type="as" direction="out"/>
          <arg name="simple_dict" type="a{sv}" direction="out"/>
-         <arg name="arr_struct" type="a(ts)" direction="out"/>
-         <arg name="dict_struct" type="a{t(sv)}" direction="out"/>
          <arg name="dict_arr_struct" type="a{oa(gsv)}" direction="out"/>
       </method>
 

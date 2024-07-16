@@ -11,10 +11,15 @@ package Codegen.Output is
    procedure Begin_Code;
    procedure End_Code;
 
-   function Function_Signature (SP : Ada_Subprogram_Type) return String;
+   function Function_Signature (M : Parsing.Method_Type) return String;
+
    procedure Declare_Procedure (Signature : String);
+   procedure Declare_Function (Signature : String; Return_Type : String);
    procedure Start_Procedure (Signature : String);
+   procedure Start_Function (Signature : String; Return_Type : String);
    procedure End_Procedure (Name : String);
+   procedure End_Function (Name : String) renames End_Procedure;
+   procedure Return_Entity (Name : String);
 
    procedure Declare_Package (Name : String; Extension : String);
    procedure Start_Package_Body (Name : String);

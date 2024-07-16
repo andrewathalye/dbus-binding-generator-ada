@@ -19,8 +19,7 @@ procedure Test is
    Argsvr : test_interface.Array_rgsvr;
    Oargsvr : test_interface.Dict_oargsvr;
 begin
-   --  For the sake of testing
-   test_interface.Connect ("org.freedesktop.DBus");
+   test_interface.Set_Destination ("org.freedesktop.DBus");
 
    V := D_Bus.Arguments.Containers.Create (+"Variant");
    S.Append (To_Unbounded_String ("Array_s"));

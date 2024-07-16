@@ -1,87 +1,141 @@
 <?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-
-<xs:attribute name="name" type="xs:string"/>
-<xs:attribute name="type" type="xs:string"/>
-
-<xs:complexType name="annotation">
-   <xs:attribute ref="name" use="required"/>
-   <xs:attribute name="value" type="xs:string" use="required"/>
-</xs:complexType>
-
-<xs:complexType name="arg">
-   <xs:attribute ref="name"/>
-   <xs:attribute ref="type" use="required"/>
-</xs:complexType>
-
-<xs:complexType name="method_arg">
-   <xs:complexContent>
-      <xs:extension base="arg">
-         <xs:attribute name="direction" use="required">
-            <xs:simpleType>
-               <xs:restriction base="xs:string">
-                  <xs:enumeration value="in"/>
-                  <xs:enumeration value="out"/>
-               </xs:restriction>
-            </xs:simpleType>
-         </xs:attribute>
-      </xs:extension>
-   </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="method">
-   <xs:choice minOccurs="0" maxOccurs="unbounded">
-      <xs:element name="arg" type="method_arg"/>
-      <xs:element name="annotation" type="annotation"/>
-   </xs:choice>
-   <xs:attribute ref="name" use="required"/>
-</xs:complexType>
-
-<xs:complexType name="signal">
-   <xs:choice minOccurs="0" maxOccurs="unbounded">
-      <xs:element name="arg" type="arg"/>
-      <xs:element name="annotation" type="annotation"/>
-   </xs:choice>
-   <xs:attribute ref="name" use="required"/>
-</xs:complexType>
-
-<xs:attribute name="access">
-   <xs:simpleType>
+   <xs:simpleType name="member_name">
       <xs:restriction base="xs:string">
-         <xs:enumeration value="read"/>
-         <xs:enumeration value="write"/>
-         <xs:enumeration value="readwrite"/>
+         <!-- Name format: al (alnum_)* -->
+         <!-- Per the DBus Specification -->
+         <xs:pattern value="^[a-zA-Z]([a-zA-Z0-9_])*$"/>
+         <xs:maxLength value="255"/>
       </xs:restriction>
    </xs:simpleType>
-</xs:attribute>
 
-<xs:complexType name="property">
-   <xs:choice minOccurs="0" maxOccurs="unbounded">
-      <xs:element name="annotation" type="annotation"/>
-   </xs:choice>
+   <xs:simpleType name="interface_name">
+      <xs:restriction base="xs:string">
+         <!-- Name format: (al_ (alnum_)*.)+ al_ (alnum_)* -->
+         <!-- Per the DBus Specification -->
+         <xs:pattern value="^([a-zA-Z_]([a-zA-Z0-9_])*\.)+[a-zA-Z_]([a-zA-Z0-9_])*"/>
+         <xs:maxLength value="255"/>
+      </xs:restriction>
+   </xs:simpleType>
 
-   <xs:attribute ref="name" use="required"/>
-   <xs:attribute ref="type" use="required"/>
-   <xs:attribute ref="access" use="required"/>
-</xs:complexType>
+   <xs:simpleType name="object_path">
+      <xs:restriction base="xs:string">
+         <!-- Name format: (/(alnum_)+)+ (/(alnum_)+)? | / -->
+         <!-- Per the DBus Specification -->
+         <xs:pattern value="^(\/([a-zA-Z0-9_])+)+(\/([a-zA-Z0-9_])+)?$|^\/$"/>
+      </xs:restriction>
+   </xs:simpleType>
 
-<xs:complexType name="interface">
-   <xs:choice minOccurs="0" maxOccurs="unbounded">
-      <xs:element name="method" type="method"/>
-      <xs:element name="signal" type="signal"/>
-      <xs:element name="property" type="property"/>
-      <xs:element name="annotation" type="annotation"/>
-   </xs:choice>
-   <xs:attribute ref="name" use="required"/>
-</xs:complexType>
+   <xs:simpleType name="signature">
+      <xs:restriction base="xs:string">
+         <!-- Name format: basic / variant | start_array (any)+ | start_struct (any) -->
+         <!-- Less stringent than the specification. -->
+         <!-- Only verifies that the types in use are valid. -->
+         <xs:pattern value="^[ybnqiuxtdsogvh]$|^a([ybnqiuxtdsogavh\(\)\{\}])+$|^\(([ybnqiuxtdsogavh\(\)])+\)$"/>
+         <xs:maxLength value="255"/>
+      </xs:restriction>
+   </xs:simpleType>
 
-<xs:complexType name="node">
-   <xs:choice minOccurs="0" maxOccurs="unbounded">
-      <xs:element name="node" type="node"/>
-      <xs:element name="interface" type="interface"/>
-   </xs:choice>
-   <xs:attribute ref="name"/>
-</xs:complexType>
+   <xs:complexType name="annotation">
+      <xs:attribute name="name" type="interface_name" use="required"/>
+      <xs:attribute name="value" type="xs:string" use="required"/>
+   </xs:complexType>
 
-<xs:element name="node" type="node"/>
+   <xs:complexType name="base_arg">
+      <xs:attribute name="name" type="member_name"/>
+      <xs:attribute name="type" type="signature" use="required"/>
+   </xs:complexType>
+
+   <xs:complexType name="method_arg">
+      <xs:complexContent>
+         <xs:extension base="base_arg">
+            <xs:attribute name="direction" default="in">
+               <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                     <xs:enumeration value="in"/>
+                     <xs:enumeration value="out"/>
+                  </xs:restriction>
+               </xs:simpleType>
+            </xs:attribute>
+         </xs:extension>
+      </xs:complexContent>
+   </xs:complexType>
+
+   <xs:complexType name="signal_arg">
+      <xs:complexContent>
+         <xs:extension base="base_arg">
+            <xs:attribute name="direction" default="out">
+               <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                     <xs:enumeration value="out"/>
+                  </xs:restriction>
+               </xs:simpleType>
+            </xs:attribute>
+         </xs:extension>
+      </xs:complexContent>
+   </xs:complexType>
+
+   <xs:complexType name="method">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+         <xs:element name="arg" type="method_arg"/>
+         <xs:element name="annotation" type="annotation"/>
+      </xs:choice>
+      <xs:attribute name="name" type="member_name" use="required"/>
+   </xs:complexType>
+
+   <xs:complexType name="signal">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+         <xs:element name="arg" type="signal_arg"/>
+         <xs:element name="annotation" type="annotation"/>
+      </xs:choice>
+      <xs:attribute name="name" type="member_name" use="required"/>
+   </xs:complexType>
+
+   <xs:complexType name="property">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+         <xs:element name="annotation" type="annotation"/>
+      </xs:choice>
+
+      <xs:attribute name="name" type="member_name" use="required"/>
+      <xs:attribute name="type" type="signature" use="required"/>
+      <xs:attribute name="access" use="required">
+         <xs:simpleType>
+            <xs:restriction base="xs:string">
+               <xs:enumeration value="read"/>
+               <xs:enumeration value="write"/>
+               <xs:enumeration value="readwrite"/>
+            </xs:restriction>
+         </xs:simpleType>
+      </xs:attribute>
+   </xs:complexType>
+
+   <xs:complexType name="interface">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+         <xs:element name="method" type="method"/>
+         <xs:element name="signal" type="signal"/>
+         <xs:element name="property" type="property"/>
+         <xs:element name="annotation" type="annotation"/>
+      </xs:choice>
+      <xs:attribute name="name" type="interface_name" use="required"/>
+   </xs:complexType>
+
+   <!-- Required to contain a name -->
+   <xs:complexType name="child_node">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+         <xs:element name="node" type="child_node"/>
+         <xs:element name="interface" type="interface"/>
+      </xs:choice>
+      <xs:attribute name="name" type="object_path" use="required"/>
+   </xs:complexType>
+
+   <!-- Not required to contain a name -->
+   <xs:complexType name="root_node">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+         <xs:element name="node" type="child_node"/>
+         <xs:element name="interface" type="interface"/>
+      </xs:choice>
+      <xs:attribute name="name" type="object_path"/>
+   </xs:complexType>
+
+   <xs:element name="node" type="root_node"/>
 </xs:schema>

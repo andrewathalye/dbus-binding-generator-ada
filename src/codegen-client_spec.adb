@@ -2,7 +2,7 @@ with Codegen.Output; use Codegen.Output;
 
 with Shared; use Shared;
 
-package body Codegen.Specification is
+package body Codegen.Client_Spec is
    --  Produce an acceptable order for dependency resolution
    --  'Elaborate' the type declaration order
    package ATDL is new Ada.Containers.Vectors (Positive, Ada_Type_Declaration);
@@ -148,20 +148,45 @@ package body Codegen.Specification is
 
          --  Print subprogram specs
          Large_Comment ("Builtin");
-         Declare_Entity ("Not_Connected", "exception");
-         Declare_Entity ("Already_Connected", "exception");
-         Declare_Procedure ("Connect (Dest : String)");
-         Comment ("--  Connect and prepare to send messages to `Dest`");
-         Comment ("--  This can only be called once and must be called");
-         Comment ("--  Prior to any other DBus methods.");
+         Declare_Entity ("No_Destination", "exception");
+         Declare_Procedure ("Set_Destination (Dest : String)");
+         Comment ("Connect and prepare to send messages to `Dest`");
+         Comment ("This must be called before any other method.");
          New_Line;
 
          Large_Comment ("DBus Methods");
-         for SP of Pkg.Subprograms loop
+         for SP of Pkg.Methods loop
             Declare_Procedure (Function_Signature (SP));
             New_Line;
+         end loop;
+
+         --  TODO is this correct handling for signals?
+         Large_Comment ("DBus Signals");
+         for S of Pkg.Signals loop
+            Declare_Procedure (Function_Signature (S));
+            New_Line;
+         end loop;
+
+         Large_Comment ("DBus Properties");
+         for P of Pkg.Properties loop
+            declare
+               Ada_Type : constant String := +Pkg.Type_Declarations
+                 (P.Type_Code).Name;
+            begin
+               case P.PAccess is
+                  when Parsing.Read =>
+                     Declare_Function ("Get_" & (+P.Name), Ada_Type);
+                  when Parsing.Write =>
+                     Declare_Procedure
+                       ("Set_" & (+P.Name) & " (Value : " & Ada_Type & ")");
+                  when Parsing.Readwrite =>
+                     Declare_Function ("Get_" & (+P.Name), Ada_Type);
+                     Declare_Procedure
+                       ("Set_" & (+P.Name) & " (Value : " & Ada_Type & ")");
+               end case;
+            end;
          end loop;
       End_Package (+Pkg.Name);
       --!pp on
    end Print;
-end Codegen.Specification;
+end Codegen.Client_Spec;
