@@ -27,6 +27,10 @@ package Parsing is
    package Method_Lists is new Ada.Containers.Vectors (Positive, Method_Type);
    subtype Method_List is Method_Lists.Vector;
 
+   subtype Signal_Type is Method_Type;
+   package Signal_Lists renames Method_Lists;
+   subtype Signal_List is Signal_Lists.Vector;
+
    type Property_Type is record
       Name      : Ada.Strings.Unbounded.Unbounded_String;
       Type_Code : Ada.Strings.Unbounded.Unbounded_String;
@@ -40,7 +44,7 @@ package Parsing is
    type Interface_Type is record
       Name       : Ada.Strings.Unbounded.Unbounded_String;
       Methods    : Method_List;
-      Signals    : Method_List;
+      Signals    : Signal_List;
       Properties : Property_List;
    end record;
 

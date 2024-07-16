@@ -1,10 +1,10 @@
 DBus Binding Generator Ada
 ==========================
-What it says on the tin.
-
 Generates high-level, convenient Ada bindings given a DBus XML specification.
 
-Currently working: client bindings
+Current working: client bindings
+Currently in progress: server bindings
+TODO: client signal handling, type d and h
 
 Test XML specifications can be found in `data/`
 

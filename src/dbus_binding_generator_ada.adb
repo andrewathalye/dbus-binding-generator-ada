@@ -35,7 +35,9 @@ procedure DBus_Binding_Generator_Ada is
    procedure Show_Help is
       use Ada.Text_IO;
    begin
-      Put_Line ("Usage: " & Ada.Command_Line.Command_Name & " [INPUT]");
+      Put_Line
+        ("Usage: " & Ada.Command_Line.Command_Name &
+         " [input file] [client|server]");
       GNAT.OS_Lib.OS_Exit (-1);
    end Show_Help;
 
@@ -47,10 +49,16 @@ procedure DBus_Binding_Generator_Ada is
       GNAT.OS_Lib.OS_Exit (-1);
    end Error_Message;
 
+   -----------
+   -- Types --
+   -----------
+   type Client_Server is (Client, Server);
+
    ---------------
    -- Variables --
    ---------------
    Input_File : Ada.Strings.Unbounded.Unbounded_String;
+   Mode       : Client_Server;
 
    ---------
    -- XML --
@@ -83,8 +91,14 @@ begin
    ------------
    --  Load input file
    case Ada.Command_Line.Argument_Count is
-      when 1 =>
+      when 2 =>
          Input_File := +Ada.Command_Line.Argument (1);
+
+         begin
+            Mode := Client_Server'Value (Ada.Command_Line.Argument (2));
+         exception
+            when Constraint_Error => Show_Help;
+         end;
       when others =>
          Show_Help;
    end case;
@@ -170,8 +184,13 @@ begin
                Pkg : constant Codegen.Ada_Package_Type :=
                  Codegen.Create_Package (LN.Name, I);
             begin
-               Codegen.Client_Spec.Print (Pkg);
-               Codegen.Client_Body.Print (Pkg);
+               case Mode is
+                  when Client =>
+                     Codegen.Client_Spec.Print (Pkg);
+                     Codegen.Client_Body.Print (Pkg);
+                  when Server =>
+                     raise Program_Error with "Server codegen unimplemented";
+               end case;
 
                Put_Debug ("Generated interface " & (+I.Name));
             end;

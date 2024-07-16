@@ -1,4 +1,7 @@
-with Codegen.Output;  use Codegen.Output;
+with Codegen.Output.Client;
+use Codegen.Output.Client;
+use Codegen.Output;
+
 with Codegen.Binding; use Codegen.Binding;
 with Codegen.Client_Body.Add_Builtin_Subprograms;
 
@@ -65,54 +68,6 @@ package body Codegen.Client_Body is
                --!pp on
          end case;
       end Apply_Argument;
-
-      procedure Generate_Getter (P : Parsing.Property_Type);
-      procedure Generate_Getter (P : Parsing.Property_Type) is
-      begin
-         --!pp off
-         Start_Function
-           ("Get_" & (+P.Name), +Pkg.Type_Declarations (P.Type_Code).Name);
-            Declare_Entity ("Property", Get_Library_DBus_Type (+P.Type_Code));
-            Declare_Entity
-              ("Property_Ada", +Pkg.Type_Declarations (P.Type_Code).Name);
-         Begin_Code;
-            Assign
-              ("Property",
-               Get_Library_DBus_Type (+P.Type_Code) & " (Get_Property (""" &
-               (+P.Name) & """))");
-            Codegen.Binding.Bind_To_Ada
-              (Pkg => Pkg,
-               TD => Pkg.Type_Declarations (P.Type_Code),
-               DBus_Name => "Property",
-               Ada_Name => "Property_Ada");
-
-            Return_Entity ("Property_Ada");
-         End_Function ("Get_" & (+P.Name));
-         --!pp on
-      end Generate_Getter;
-
-      procedure Generate_Setter (P : Parsing.Property_Type);
-      procedure Generate_Setter (P : Parsing.Property_Type) is
-      begin
-         --!pp off
-         Start_Procedure
-           ("Set_" & (+P.Name) & "(Value : " &
-            (+Pkg.Type_Declarations (P.Type_Code).Name) & ")");
-            Declare_Entity ("Property", Get_Library_DBus_Type (+P.Type_Code));
-            Declare_Entity
-              ("Variant", "D_Bus.Arguments.Containers.Variant_Type");
-         Begin_Code;
-            Codegen.Binding.Bind_To_DBus
-              (Pkg => Pkg,
-               TD => Pkg.Type_Declarations (P.Type_Code),
-               Ada_Name => "Value",
-               DBus_Name => "Property");
-            Call
-              ("Set_Property (""" & (+P.Name) &
-               """, Property)");
-         End_Procedure ("Set_" & (+P.Name));
-         --!pp on
-      end Generate_Setter;
    begin
       --!pp off
       --  Preamble
@@ -146,16 +101,16 @@ package body Codegen.Client_Body is
          New_Line;
 
          --  Methods
-         Large_Comment ("DBus Methods");
-         for SP of Pkg.Methods loop
-            Start_Procedure (Function_Signature (SP));
+         Large_Comment ("Methods");
+         for M of Pkg.Methods loop
+            Start_Procedure (Method_Signature (M));
                Declare_Entity
                  ("Request_Args", "D_Bus.Arguments.Argument_List_Type");
                Declare_Entity
                  ("Reply_Args", "D_Bus.Arguments.Argument_List_Type");
             Begin_Code;
                --  Bind each in argument
-               for A of SP.Arguments loop
+               for A of M.Arguments loop
                   if A.Direction = Parsing.DIn then
                      Apply_Argument (A);
                      New_Line;
@@ -164,14 +119,14 @@ package body Codegen.Client_Body is
 
                --  The method call itself
                Call
-                 ("Call_Remote (Iface, """ & (+SP.Name) & """, Request_Args" &
+                 ("Call_Remote (Iface, """ & (+M.Name) & """, Request_Args" &
                   ", Reply_Args)");
 
                --  Bind each out argument
                declare
                   Index : Positive := 1;
                begin
-                  for A of SP.Arguments loop
+                  for A of M.Arguments loop
                      if A.Direction = Parsing.DOut then
                         New_Line;
                         Codegen.Binding.Bind_To_Ada
@@ -186,33 +141,63 @@ package body Codegen.Client_Body is
                      end if;
                   end loop;
                end;
-            End_Procedure (+SP.Name);
+            End_Procedure (Method_Name (M));
             New_Line;
          end loop;
 
          --  TODO Signals
          --  Signals
-         Large_Comment ("DBus Signals");
+         Large_Comment ("Signals");
          for S of Pkg.Signals loop
-            Start_Procedure (Function_Signature (S));
+            Start_Procedure (Signal_Signature (S));
             Begin_Code;
                Call ("null");
-            End_Procedure (+S.Name);
+            End_Procedure (Signal_Name (S));
          end loop;
 
          --  Properties
-         Large_Comment ("DBus Properties");
+         Large_Comment ("Properties");
          for P of Pkg.Properties loop
-            case P.PAccess is
-               when Parsing.Read =>
-                  Generate_Getter (P);
-               when Parsing.Write =>
-                  Generate_Setter (P);
-               when Parsing.Readwrite =>
-                  Generate_Getter (P);
-                  New_Line;
-                  Generate_Setter (P);
-            end case;
+            --  Getter
+            if P.PAccess in Parsing.Read | Parsing.Readwrite then
+               declare
+                  Ada_Type : constant String :=
+                    +Pkg.Type_Declarations (P.Type_Code).Name;
+                  DBus_Type : constant String :=
+                    Get_Library_DBus_Type (+P.Type_Code);
+               begin
+                  Start_Function (Property_Read_Signature (P));
+                     Declare_Entity ("Property", DBus_Type);
+                     Declare_Entity ("Property_Ada", Ada_Type);
+                  Begin_Code;
+                     Assign
+                       ("Property",
+                        DBus_Type & " (Get_Property (""" &
+                        (+P.Name) & """))");
+                     Codegen.Binding.Bind_To_Ada
+                       (Pkg => Pkg,
+                        TD => Pkg.Type_Declarations (P.Type_Code),
+                        DBus_Name => "Property",
+                        Ada_Name => "Property_Ada");
+                     Return_Entity ("Property_Ada");
+                  End_Procedure (Property_Read_Name (P));
+               end;
+            end if;
+
+            --  Setter
+            if P.PAccess in Parsing.Write | Parsing.Readwrite then
+               Start_Procedure (Property_Write_Signature (P));
+                  Declare_Entity
+                    ("Property", Get_Library_DBus_Type (+P.Type_Code));
+               Begin_Code;
+                  Codegen.Binding.Bind_To_DBus
+                    (Pkg => Pkg,
+                     TD => Pkg.Type_Declarations (P.Type_Code),
+                     Ada_Name => "Value",
+                     DBus_Name => "Property");
+                  Call ("Set_Property (""" & (+P.Name) & """, Property)");
+               End_Procedure (Property_Write_Name (P));
+            end if;
             New_Line;
          end loop;
       End_Package (+Pkg.Name);

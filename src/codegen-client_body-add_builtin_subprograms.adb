@@ -35,8 +35,8 @@ begin
    New_Line;
 
    Start_Function
-     ("Get_Property (Property : String)",
-      "D_Bus.Arguments.Argument_Type'Class");
+     ("Get_Property (Property : String) return" &
+      " D_Bus.Arguments.Argument_Type'Class");
    Use_Entity ("D_Bus.Arguments.Basic");
 
    Declare_Entity ("Variant", "D_Bus.Arguments.Containers.Variant_Type");

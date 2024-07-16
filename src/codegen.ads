@@ -7,8 +7,11 @@ private with Ada.Containers.Vectors;
 private with Ada.Containers.Hashed_Maps;
 
 package Codegen is
-   type Ada_Package_Type is private;
+   --  Used only by internal packages
    type Ada_Type_Declaration is private;
+
+   --  Public Interface
+   type Ada_Package_Type is private;
 
    function Create_Package
      (Node : Ada.Strings.Unbounded.Unbounded_String;
@@ -65,7 +68,7 @@ private
       Iface             : Ada.Strings.Unbounded.Unbounded_String;
       Type_Declarations : Ada_Type_Declaration_Map;
       Methods           : Parsing.Method_List;
-      Signals           : Parsing.Method_List;
+      Signals           : Parsing.Signal_List;
       Properties        : Parsing.Property_List;
    end record;
 end Codegen;
