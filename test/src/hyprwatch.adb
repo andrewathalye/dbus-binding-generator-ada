@@ -1,16 +1,21 @@
-with Ada.Text_IO;
-with Ada.Strings.Unbounded;
+with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
-with tk_zenithseeker_Hyprwatch;
-with org_freedesktop_DBus_Introspectable;
+with tk_zenithseeker_hyprwatch_org_freedesktop_DBus_Introspectable;
+with tk_zenithseeker_hyprwatch_tk_zenithseeker_hyprwatch;
 
 procedure Hyprwatch is
-   XML : Ada.Strings.Unbounded.Unbounded_String;
-begin
-   org_freedesktop_DBus_Introspectable.Connect ("tk.zenithseeker.hyprwatch");
-   org_freedesktop_DBus_Introspectable.Introspect (XML);
-   Ada.Text_IO.Put_Line (Ada.Strings.Unbounded.To_String (XML));
+   package OFDI renames tk_zenithseeker_hyprwatch_org_freedesktop_DBus_Introspectable;
+   package TZH renames tk_zenithseeker_hyprwatch_tk_zenithseeker_hyprwatch;
 
-   tk_zenithseeker_Hyprwatch.Connect ("tk.zenithseeker.hyprwatch");
-   tk_zenithseeker_Hyprwatch.ActivateWorkspace ((3, 1));
+   XML : Unbounded_String;
+   json : Unbounded_String;
+begin
+   OFDI.Set_Destination ("tk.zenithseeker.hyprwatch");
+   OFDI.Introspect (XML);
+   Put_Line (To_String (XML));
+
+   TZH.Set_Destination ("tk.zenithseeker.hyprwatch");
+   TZH.Await_HyprUpdate (json);
+   Put_Line (To_String (JSON));
 end Hyprwatch;

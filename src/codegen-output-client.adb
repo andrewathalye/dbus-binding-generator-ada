@@ -78,6 +78,6 @@ package body Codegen.Output.Client is
    is
    begin
       return Property_Write_Name (P) & " (Value : " &
-         Type_Checking.Get_Ada_Type (+P.Type_Code);
+         Type_Checking.Get_Ada_Type (+P.Type_Code) & ")";
    end Property_Write_Signature;
 end Codegen.Output.Client;

@@ -157,7 +157,7 @@ package body Codegen.Output is
 
    procedure New_Line is
    begin
-      Ada.Text_IO.New_Line (File);
+      New_Line (File);
    end New_Line;
 
    -------------------
@@ -443,4 +443,13 @@ package body Codegen.Output is
          when Constraint_Error => return Name;
       end;
    end Sanitise_Name;
+
+   procedure Exception_Code is
+   begin
+      Put_Line (File, "exception");
+   end Exception_Code;
+   procedure When_Exception (Name : String) is
+   begin
+      Put_Line (File, "When X : " & Name & " =>");
+   end When_Exception;
 end Codegen.Output;

@@ -30,49 +30,61 @@ package body Codegen.Client_Spec is
       --  Package Spec
       --!pp off
       Start_Package (+Pkg.Name);
-         --  Builtin Types
-         Large_Comment ("Builtin");
-         Declare_Subtype
-           ("Object_Path", "Ada.Strings.Unbounded.Unbounded_String");
-         Declare_Subtype
-           ("Signature_Type", "Ada.Strings.Unbounded.Unbounded_String");
-         New_Line;
+         --  Builtins
+         if Pkg.Methods.Is_Empty
+            and Pkg.Signals.Is_Empty and Pkg.Signals.Is_Empty
+         then
+            null;
+         else
+            Large_Comment ("Builtin");
+            Declare_Subtype
+              ("Object_Path", "Ada.Strings.Unbounded.Unbounded_String");
+            Declare_Subtype
+              ("Signature_Type", "Ada.Strings.Unbounded.Unbounded_String");
+            New_Line;
+
+            Declare_Entity ("No_Destination", "exception");
+            Declare_Procedure ("Set_Destination (Dest : String)");
+            Comment ("Connect and prepare to send messages to `Dest`");
+            Comment ("This must be called before any other method.");
+            New_Line;
+         end if;
 
          --  Generated types
-         Large_Comment ("Generated Types");
-         Declare_Types (Pkg);
+         if not Pkg.Type_Declarations.Is_Empty then
+            Large_Comment ("Generated Types");
+            Declare_Types (Pkg);
+         end if;
 
-         --  Builtin Subprograms
-         Large_Comment ("Builtin");
-         Declare_Entity ("No_Destination", "exception");
-         Declare_Procedure ("Set_Destination (Dest : String)");
-         Comment ("Connect and prepare to send messages to `Dest`");
-         Comment ("This must be called before any other method.");
-         New_Line;
+         if not Pkg.Methods.Is_Empty then
+            Large_Comment ("Methods");
+            for M of Pkg.Methods loop
+               Declare_Procedure (Method_Signature (M));
+               New_Line;
+            end loop;
+         end if;
 
-         Large_Comment ("Methods");
-         for M of Pkg.Methods loop
-            Declare_Procedure (Method_Signature (M));
-            New_Line;
-         end loop;
+         if not Pkg.Signals.Is_Empty then
+            Large_Comment ("Signals");
+            for S of Pkg.Signals loop
+               Declare_Procedure (Signal_Signature (S));
+               New_Line;
+            end loop;
+         end if;
 
-         Large_Comment ("Signals");
-         for S of Pkg.Signals loop
-            Declare_Procedure (Signal_Signature (S));
-            New_Line;
-         end loop;
+         if not Pkg.Properties.Is_Empty then
+            Large_Comment ("Properties");
+            for P of Pkg.Properties loop
+               if P.PAccess in Parsing.Read | Parsing.Readwrite then
+                  Declare_Function (Property_Read_Signature (P));
+               end if;
 
-         Large_Comment ("Properties");
-         for P of Pkg.Properties loop
-            if P.PAccess in Parsing.Read | Parsing.Readwrite then
-               Declare_Function (Property_Read_Signature (P));
-            end if;
-
-            if P.PAccess in Parsing.Write | Parsing.Readwrite then
-               Declare_Procedure (Property_Write_Signature (P));
-            end if;
-            New_Line;
-         end loop;
+               if P.PAccess in Parsing.Write | Parsing.Readwrite then
+                  Declare_Procedure (Property_Write_Signature (P));
+               end if;
+               New_Line;
+            end loop;
+         end if;
       End_Package (+Pkg.Name);
       --!pp on
    end Print;

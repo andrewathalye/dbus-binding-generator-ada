@@ -15,6 +15,8 @@ package Codegen.Output is
    --  Code Blocks
    procedure Declare_Code;
    procedure Begin_Code;
+   procedure Exception_Code;
+   procedure When_Exception (Name : String);
    procedure End_Code;
 
    --  Subprograms

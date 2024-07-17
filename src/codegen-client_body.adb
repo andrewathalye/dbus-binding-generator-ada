@@ -3,7 +3,7 @@ use Codegen.Output.Client;
 use Codegen.Output;
 
 with Codegen.Binding; use Codegen.Binding;
-with Codegen.Client_Body.Add_Builtin_Subprograms;
+with Codegen.Client_Body.Add_Builtins;
 
 with Parsing;
 use type Parsing.DBus_Direction;
@@ -18,8 +18,8 @@ package body Codegen.Client_Body is
    -----------
    procedure Print (Pkg : Ada_Package_Type) is
       --  Applies `A` to `Request_Args`
-      procedure Apply_Argument (A : Parsing.Argument_Type);
-      procedure Apply_Argument (A : Parsing.Argument_Type) is
+      procedure Apply_In_Argument (A : Parsing.Argument_Type);
+      procedure Apply_In_Argument (A : Parsing.Argument_Type) is
          TD : constant Ada_Type_Declaration :=
            Pkg.Type_Declarations (A.Type_Code);
       begin
@@ -67,41 +67,26 @@ package body Codegen.Client_Body is
                End_Code;
                --!pp on
          end case;
-      end Apply_Argument;
+      end Apply_In_Argument;
    begin
       --!pp off
       --  Preamble
       With_Entity ("D_Bus.Connection");
+      With_Entity ("D_Bus.Connection.Dispatch");
       With_Entity ("D_Bus.Types");
       Use_Type ("D_Bus.Types.Obj_Path");
       With_Entity ("D_Bus.Arguments.Basic");
-      New_Line;
+      With_Entity ("D_Bus.Messages");
 
       --  Package
       Start_Package_Body (+Pkg.Name);
-         --  Globals
-         Large_Comment ("Globals");
-         Declare_Entity
-           ("Connection",
-            "constant D_Bus.Connection.Connection_Type",
-            "D_Bus.Connection.Connect");
-         Declare_Entity
-           ("Destination", "Ada.Strings.Unbounded.Unbounded_String");
-         Declare_Entity
-           ("Path", "constant D_Bus.Types.Obj_Path",
-            "+""" & (+Pkg.Node) & """");
-         Declare_Entity
-           ("Iface", "constant String",
-            """" & (+Pkg.Iface) & """");
-         New_Line;
-
          --  Builtin
-         Large_Comment ("Builtin");
-         Add_Builtin_Subprograms (Pkg);
-         New_Line;
+         Add_Builtins (Pkg);
 
          --  Methods
-         Large_Comment ("Methods");
+         if not Pkg.Methods.Is_Empty then
+            Large_Comment ("Methods");
+         end if;
          for M of Pkg.Methods loop
             Start_Procedure (Method_Signature (M));
                Declare_Entity
@@ -112,8 +97,7 @@ package body Codegen.Client_Body is
                --  Bind each in argument
                for A of M.Arguments loop
                   if A.Direction = Parsing.DIn then
-                     Apply_Argument (A);
-                     New_Line;
+                     Apply_In_Argument (A);
                   end if;
                end loop;
 
@@ -128,7 +112,6 @@ package body Codegen.Client_Body is
                begin
                   for A of M.Arguments loop
                      if A.Direction = Parsing.DOut then
-                        New_Line;
                         Codegen.Binding.Bind_To_Ada
                           (Pkg => Pkg,
                            TD => Pkg.Type_Declarations (A.Type_Code),
@@ -142,21 +125,62 @@ package body Codegen.Client_Body is
                   end loop;
                end;
             End_Procedure (Method_Name (M));
-            New_Line;
          end loop;
 
-         --  TODO Signals
          --  Signals
-         Large_Comment ("Signals");
+         if not Pkg.Signals.Is_Empty then
+            Large_Comment ("Signals");
+         end if;
          for S of Pkg.Signals loop
             Start_Procedure (Signal_Signature (S));
+               Declare_Entity ("Args", "D_Bus.Arguments.Argument_List_Type");
+               Declare_Entity
+                 ("Match_Rule",
+                  "constant String",
+                  """path="" & D_Bus.Types.To_String (Path) & " &
+                  """, interface="" & Iface & "", member=" &
+                  (+S.Name) & """");
             Begin_Code;
-               Call ("null");
+               --  Add match rule
+               Call ("D_Bus.Connection.Add_Match (Connection, Match_Rule)");
+
+               --  Execute handler and interrupt (binding doesn’t offer a
+               --  one-time dispatch (yet)
+               Begin_Code;
+                  Call
+                    ("D_Bus.Connection.Dispatch (Connection," &
+                     " Signal_Handler'Access)");
+               Exception_Code;
+                  When_Exception ("Signal_Handled");
+                     Call ("null");
+               End_Code;
+
+               --  Remove match rule
+               Call ("Remove_Match (Match_Rule)");
+
+               --  Bind arguments
+               Assign ("Args", "D_Bus.Messages.Get_Arguments (Signal_Msg)");
+               declare
+                  Index : Positive := 1;
+               begin
+                  for A of S.Arguments loop
+                     Bind_To_Ada
+                       (Pkg       => Pkg,
+                        TD        =>
+                          Pkg.Type_Declarations (A.Type_Code),
+                        DBus_Name =>
+                           "Args.Get_Element (" & Index'Image & ")",
+                        Ada_Name  => +A.Name);
+                     Index := Index + 1;
+                  end loop;
+               end;
             End_Procedure (Signal_Name (S));
          end loop;
 
          --  Properties
-         Large_Comment ("Properties");
+         if not Pkg.Properties.Is_Empty then
+            Large_Comment ("Properties");
+         end if;
          for P of Pkg.Properties loop
             --  Getter
             if P.PAccess in Parsing.Read | Parsing.Readwrite then
@@ -198,7 +222,6 @@ package body Codegen.Client_Body is
                   Call ("Set_Property (""" & (+P.Name) & """, Property)");
                End_Procedure (Property_Write_Name (P));
             end if;
-            New_Line;
          end loop;
       End_Package (+Pkg.Name);
       --!pp on

@@ -69,4 +69,10 @@
          <method name="InteriorMethod"/>
       </interface>
    </node>
+
+   <node name="/test/interface/InteriorWithEmpty">
+      <interface name="test.interface.InteriorWithEmpty"/>
+   </node>
+
+   <node name="/test/interface/Empty"/>
 </node>
