@@ -1,5 +1,5 @@
-<node name="/test/node">
-   <interface name="test.interface">
+<node name="/test/Node">
+   <interface name="test.Node">
       <method name="TestEmpty"/>
 
       <method name="TestBasicTypes">
@@ -64,15 +64,15 @@
       <annotation name="test.annotation" value="Test"/>
    </interface>
 
-   <node name="/test/interface/Interior">
-      <interface name="test.interface.Interior">
-         <method name="InteriorMethod"/>
+   <node name="/test/node/Interior">
+      <interface name="test.node.Interior">
+         <method name="Method"/>
       </interface>
    </node>
 
-   <node name="/test/interface/InteriorWithEmpty">
-      <interface name="test.interface.InteriorWithEmpty"/>
+   <node name="/test/node/InteriorWithEmpty">
+      <interface name="test.node.InteriorWithEmpty"/>
    </node>
 
-   <node name="/test/interface/Empty"/>
+   <node name="/test/node/InteriorEmpty"/>
 </node>

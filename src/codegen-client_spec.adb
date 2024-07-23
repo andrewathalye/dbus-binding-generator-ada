@@ -11,7 +11,7 @@ package body Codegen.Client_Spec is
    procedure Print (Pkg : Ada_Package_Type) is
    begin
       --  Preamble
-      Use_Pragma ("Ada_2012");
+      Use_Pragma ("Ada_2005");
       With_Entity ("Ada.Strings.Unbounded");
       Use_Type ("Ada.Strings.Unbounded.Unbounded_String");
       With_Entity ("Ada.Strings.Unbounded.Hash");
@@ -20,11 +20,15 @@ package body Codegen.Client_Spec is
       With_Entity ("Ada.Containers.Hashed_Maps");
       With_Entity ("Interfaces");
       Use_Entity ("Interfaces");
+      New_Line;
+
       With_Entity ("GNAT.OS_Lib");
+      New_Line;
+
       With_Entity ("D_Bus.Arguments.Basic");
-      Use_Entity ("D_Bus.Arguments.Basic");
       With_Entity ("D_Bus.Arguments.Containers");
-      Use_Entity ("D_Bus.Arguments.Containers");
+      Use_Type ("D_Bus.Arguments.Containers.Variant_Type");
+      With_Entity ("D_Bus.Extra");
       New_Line;
 
       --  Package Spec
@@ -38,9 +42,11 @@ package body Codegen.Client_Spec is
          else
             Large_Comment ("Builtin");
             Declare_Subtype
-              ("Object_Path", "Ada.Strings.Unbounded.Unbounded_String");
+              ("Unbounded_Object_Path",
+               "Ada.Strings.Unbounded.Unbounded_String");
             Declare_Subtype
-              ("Signature_Type", "Ada.Strings.Unbounded.Unbounded_String");
+              ("Unbounded_Signature",
+               "Ada.Strings.Unbounded.Unbounded_String");
             New_Line;
 
             Declare_Entity ("No_Destination", "exception");

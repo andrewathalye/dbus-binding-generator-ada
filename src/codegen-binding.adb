@@ -26,6 +26,7 @@ package body Codegen.Binding is
                Declare_Code;
                   Use_Entity ("D_Bus.Arguments.Basic");
                   Use_Entity ("D_Bus.Types");
+                  Use_Entity ("D_Bus.Extra");
                Begin_Code;
                   if Is_Stringlike (+TD.Type_Code) then
                      --  Unbounded_String -> String
@@ -38,8 +39,9 @@ package body Codegen.Binding is
                      else --  Unbounded_String -> String -> String_Type
                         Assign
                           (DBus_Name,
-                           "+Ada.Strings.Unbounded.To_String (" &
-                           Ada_Name & ")");
+                           "+" & Get_Library_Ada_Type (+TD.Type_Code) & " (" &
+                           "Ada.Strings.Unbounded.To_String (" & Ada_Name &
+                           "))");
                      end if;
                   else
                      Assign
@@ -149,14 +151,14 @@ package body Codegen.Binding is
                      "Ada.Strings.Unbounded.To_Unbounded_String (" &
                      DBus_Name & ".To_String)");
 
-                  --  Ada_Name := <Ada_Type> (D_Bus.Arguments.Basic.To_Ada
-                  --    (<DBus_Ada_Type> (DBus_Name)))
+                  --  Ada_Name :=
+                  --     <Ada_Type> (<DBus_Ada_Type> (DBus_Name).To_Ada)
                else
                   Assign
                     (Ada_Name,
-                     (+TD.Name) & " (" & "D_Bus.Arguments.Basic.To_Ada (" &
-                     Get_Library_DBus_Type (+TD.Type_Code) & "(" & DBus_Name &
-                     ")))");
+                     (+TD.Name) & " (" &
+                     Get_Library_DBus_Type (+TD.Type_Code) & " (" & DBus_Name &
+                     ").To_Ada)");
                end if;
 
                --  for C of DBus_Name => Ada_Name.Append (Bind (C))

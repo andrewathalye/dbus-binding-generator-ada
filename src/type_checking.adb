@@ -137,9 +137,9 @@ package body Type_Checking is
          when 's' =>
             return "Ada.Strings.Unbounded.Unbounded_String";
          when 'o' =>
-            return "Object_Path";
+            return "Unbounded_Object_Path";
          when 'g' =>
-            return "Signature_Type";
+            return "Unbounded_Signature";
          when 'a' =>
             --  Check for dicts
             case T (T'First + 1) is
@@ -183,14 +183,13 @@ package body Type_Checking is
          when 't' =>
             return "D_Bus.Arguments.Basic.U_Int64_Type";
          when 'd' =>
-            return "D_Bus.Arguments.Basic.Double_Type";
-            --  TODO this isn’t going to work (D_Bus-Ada has no doubles)
+            return "D_Bus.Extra.Double_Type";
          when 's' =>
             return "D_Bus.Arguments.Basic.String_Type";
          when 'o' =>
             return "D_Bus.Arguments.Basic.Object_Path_Type";
          when 'g' =>
-            return "D_Bus.Arguments.Basic.String_Type";
+            return "D_Bus.Extra.Signature_Type";
          when 'a' =>
             return "D_Bus.Arguments.Containers.Array_Type";
          when '(' =>
@@ -198,8 +197,7 @@ package body Type_Checking is
          when 'v' =>
             return "D_Bus.Arguments.Containers.Variant_Type";
          when 'h' =>
-            return "D_Bus.Arguments.Basic.File_Descriptor_Type";
-            --  TODO this isn’t going to work (D_Bus-Ada has no fd type)
+            return "D_Bus.Extra.File_Descriptor_Type";
          when others =>
             raise Program_Error;
       end case;
@@ -233,17 +231,15 @@ package body Type_Checking is
          when 't' =>
             return "D_Bus.Unsigned_64";
          when 'd' =>
-            return "D_Bus.Double";
-            --  TODO this isn’t going to work (D_Bus-Ada has no doubles)
+            return "D_Bus.Extra.Double";
          when 's' =>
             return "String";
          when 'o' =>
             return "D_Bus.Types.Obj_Path";
          when 'g' =>
-            return "String";
+            return "D_Bus.Extra.Signature";
          when 'h' =>
-            return "D_Bus.File_Descriptor_Type";
-            --  TODO this isn’t going to work (D_Bus-Ada has no fd type)
+            return "D_Bus.Extra.File_Descriptor";
          when others =>
             raise Program_Error;
       end case;

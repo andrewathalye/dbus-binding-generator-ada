@@ -6,26 +6,25 @@ with Interfaces;
 with D_Bus.Arguments.Containers;
 with D_Bus.Arguments.Basic; use D_Bus.Arguments.Basic;
 
-with test_interface;
+with test_Node_test_Node; use test_Node_test_Node;
 
 procedure Test is
+   package TN renames test_Node_test_Node;
+
    V : D_Bus.Arguments.Containers.Variant_Type;
 
-   S : test_interface.Array_s;
-   Sv : test_interface.Dict_sv;
-   Rtsr : test_interface.Array_rtsr;
-   Trsvr : test_interface.Dict_trsvr;
+   S : TN.Array_s;
+   Sv : TN.Dict_sv;
 
-   Argsvr : test_interface.Array_rgsvr;
-   Oargsvr : test_interface.Dict_oargsvr;
+   Argsvr : TN.Array_rgsvr;
+   Oargsvr : TN.Dict_oargsvr;
 begin
-   test_interface.Set_Destination ("org.freedesktop.DBus");
+   TN.Set_Destination ("org.freedesktop.DBus");
 
+   --  Prepare Values
    V := D_Bus.Arguments.Containers.Create (+"Variant");
    S.Append (To_Unbounded_String ("Array_s"));
    Sv.Insert (To_Unbounded_String ("Dict_sv"), V);
-   Rtsr.Append ((100, To_Unbounded_String ("Array_rtsr")));
-   Trsvr.Insert (100, (To_Unbounded_String ("Dict_trsvr"), V));
 
    Argsvr.Append
      ((To_Unbounded_String ("a{oa(gsv)}"),
@@ -35,12 +34,32 @@ begin
    Oargsvr.Insert
      (To_Unbounded_String ("/org/freedesktop/DBus"),
       Argsvr);
-      
 
-   test_interface.TestComplexTypes (
-      simple_arr => S,
-      simple_dict => Sv,
-      arr_struct => Rtsr,
-      dict_struct => Trsvr,
-      dict_arr_struct => Oargsvr);
+   --  TestBasicTypes
+   Tn.TestBasicTypes
+     (Parameter_1  => 1,
+      Parameter_2  => False,
+      Parameter_3  => 2,
+      Parameter_4  => 3,
+      Parameter_5  => 4,
+      Parameter_6  => 5,
+      Parameter_7  => 6,
+      Parameter_8  => 7,
+      Parameter_9  => 8.9,
+      Parameter_10 => To_Unbounded_String ("unbounded"),
+      Parameter_11 => To_Unbounded_String ("/object_path"),
+      Parameter_12 => To_Unbounded_String ("ybnqiuxtdsogvh"),
+      Parameter_13 => V,
+      Parameter_14 => 0);
+      
+   --  TestComplexTypes
+   begin
+      TN.TestComplexTypes (
+         simple_struct => ((Member_1 => To_Unbounded_String ("Struct_s"))),
+         simple_arr => S,
+         simple_dict => Sv,
+         dict_arr_struct => Oargsvr);
+   exception
+      when D_Bus.D_Bus_Error => null;
+   end;
 end Test;

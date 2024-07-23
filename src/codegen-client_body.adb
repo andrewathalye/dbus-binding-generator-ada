@@ -27,7 +27,6 @@ package body Codegen.Client_Body is
             when Basic_Kind | Variant_Kind =>
                --!pp off
                Declare_Code;
-                  Use_Entity ("D_Bus.Arguments.Basic");
                   Declare_Entity
                     ("Root_Obj", Get_Library_DBus_Type (+A.Type_Code));
                Begin_Code;
@@ -77,6 +76,7 @@ package body Codegen.Client_Body is
       Use_Type ("D_Bus.Types.Obj_Path");
       With_Entity ("D_Bus.Arguments.Basic");
       With_Entity ("D_Bus.Messages");
+      With_Entity ("D_Bus.Extra");
 
       --  Package
       Start_Package_Body (+Pkg.Name);
