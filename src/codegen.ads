@@ -7,16 +7,31 @@ private with Ada.Containers.Vectors;
 private with Ada.Containers.Hashed_Maps;
 
 package Codegen is
-   --  Used only by internal packages
-   type Ada_Type_Declaration is private;
+   -----------
+   -- TYPES --
+   -----------
+   type Ada_Types_Package_Type is private;
+   --  A package containing only a list of Ada type declarations.
 
-   --  Public Interface
    type Ada_Package_Type is private;
+   --  A generic Ada package (with info about D_Bus mappings)
 
+   type Ada_Type_Declaration is private;
+   --  An Ada type declaration (with info about D_Bus mappings)
+
+   -----------------
+   -- SUBPROGRAMS --
+   -----------------
    function Create_Package
      (Node : Ada.Strings.Unbounded.Unbounded_String;
       I    : Parsing.Interface_Type) return Ada_Package_Type;
    --  Return an Ada Package object based on the DBus interface
+
+   procedure Append_Types
+    (Types_Pkg : in out Ada_Types_Package_Type;
+     Pkg : Ada_Package_Type);
+   --  Add any types only in `Pkg` to `Types_Pkg`
+   --  You may then call `Codegen.Output.Print_Types_Package (...)`
 private
    --  Type Declarations
    type Ada_Record_Member_Type is record
@@ -70,5 +85,9 @@ private
       Methods           : Parsing.Method_List;
       Signals           : Parsing.Signal_List;
       Properties        : Parsing.Property_List;
+   end record;
+
+   type Ada_Types_Package_Type is record
+      Type_Declarations : Ada_Type_Declaration_Map;
    end record;
 end Codegen;

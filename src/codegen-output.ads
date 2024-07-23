@@ -33,6 +33,7 @@ package Codegen.Output is
    procedure Declare_Package (Name : String; Extension : String);
    procedure Start_Package_Body (Name : String);
    procedure Start_Package (Name : String);
+   procedure Private_Package;
    procedure End_Package (Name : String);
 
    --  Entity Clauses
@@ -42,9 +43,10 @@ package Codegen.Output is
    procedure Declare_Entity
      (Entity : String; EType : String; Value : String := "");
    procedure With_Entity (Entity : String);
+   procedure Private_With_Entity (Entity : String);
 
    --  Types
-   procedure Declare_Types (Pkg : Ada_Package_Type);
+   procedure Declare_Types_Package (Types_Pkg : Ada_Types_Package_Type);
    procedure Declare_Type (Name : String; Extension : String);
    procedure Declare_Subtype (Name : String; Extension : String);
    procedure Start_Record (Name : String);
@@ -67,6 +69,11 @@ package Codegen.Output is
    --  or references to entities required by the binding generator.
    --
    --  This should be called on any external name
+   function Package_Name (Name : String) return String;
+   --  Returns a sanitised package name for `Name`
+   --  More specifically, replaces all instances of '/' with
+   --  '_' and renames reserved words.
+
 private
    function Get_Arguments
      (AL : Parsing.Argument_List; Client : Boolean) return String;

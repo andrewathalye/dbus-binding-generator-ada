@@ -181,34 +181,11 @@ package body Codegen is
    is
       use Ada.Strings.Unbounded;
 
-      Node_Name : String := +Node;
-      Interface_Name : String := +I.Name;
-
       Pkg : Ada_Package_Type;
    begin
-      ------------
-      -- Fixups --
-      ------------
-      if Node_Name = "/" then
-         Append (Pkg.Name, "Root_");
-      else
-         for C of Node_Name loop
-            if C = '/' then
-               C := '_';
-            end if;
-         end loop;
-
-         Append
-           (Pkg.Name, Node_Name (Node_Name'First + 1 .. Node_Name'Last) & "_");
-      end if;
-
-      for C of Interface_Name loop
-         if C = '.' then
-            C := '_';
-         end if;
-      end loop;
-
-      Append (Pkg.Name, Interface_Name);
+      Append (Pkg.Name, Codegen.Output.Package_Name (+Node));
+      Append (Pkg.Name, '.');
+      Append (Pkg.Name, Codegen.Output.Package_Name (+I.Name));
 
       Pkg.Node  := Node;
       Pkg.Iface := I.Name;
@@ -257,4 +234,18 @@ package body Codegen is
 
       return Pkg;
    end Create_Package;
+
+   --  Merge types from `Pkg` into `Types_Pkg`
+   procedure Append_Types
+    (Types_Pkg : in out Ada_Types_Package_Type;
+     Pkg : Ada_Package_Type)
+   is
+   begin
+      for TD of Pkg.Type_Declarations loop
+         if not Types_Pkg.Type_Declarations.Contains (TD.Type_Code) then
+            Types_Pkg.Type_Declarations.Insert (TD.Type_Code, TD);
+         end if;
+      end loop;
+   end Append_Types;
+
 end Codegen;

@@ -137,9 +137,9 @@ package body Type_Checking is
          when 's' =>
             return "Ada.Strings.Unbounded.Unbounded_String";
          when 'o' =>
-            return "Unbounded_Object_Path";
+            return "D_Bus.Support.Unbounded_Object_Path";
          when 'g' =>
-            return "Unbounded_Signature";
+            return "D_Bus.Support.Unbounded_Signature";
          when 'a' =>
             --  Check for dicts
             case T (T'First + 1) is

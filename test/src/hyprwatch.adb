@@ -1,14 +1,15 @@
-with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Text_IO;           use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
 with tk_zenithseeker_hyprwatch_org_freedesktop_DBus_Introspectable;
 with tk_zenithseeker_hyprwatch_tk_zenithseeker_hyprwatch;
 
 procedure Hyprwatch is
-   package OFDI renames tk_zenithseeker_hyprwatch_org_freedesktop_DBus_Introspectable;
+   package OFDI renames
+     tk_zenithseeker_hyprwatch_org_freedesktop_DBus_Introspectable;
    package TZH renames tk_zenithseeker_hyprwatch_tk_zenithseeker_hyprwatch;
 
-   XML : Unbounded_String;
+   XML  : Unbounded_String;
    json : Unbounded_String;
 begin
    OFDI.Set_Destination ("tk.zenithseeker.hyprwatch");
@@ -17,5 +18,5 @@ begin
 
    TZH.Set_Destination ("tk.zenithseeker.hyprwatch");
    TZH.Await_HyprUpdate (json);
-   Put_Line (To_String (JSON));
+   Put_Line (To_String (json));
 end Hyprwatch;

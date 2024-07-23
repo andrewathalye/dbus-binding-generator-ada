@@ -155,6 +155,11 @@ package body Codegen.Output is
       Put_Line (File, "with " & Entity & ";");
    end With_Entity;
 
+   procedure Private_With_Entity (Entity : String) is
+   begin
+      Put_Line (File, "private with " & Entity & ";");
+   end Private_With_Entity;
+
    procedure New_Line is
    begin
       New_Line (File);
@@ -236,6 +241,11 @@ package body Codegen.Output is
       Put_Line (File, "package " & Name & " is " & Extension & ";");
    end Declare_Package;
 
+   procedure Private_Package is
+   begin
+      Put_Line (File, "private");
+   end Private_Package;
+
    procedure Start_Record (Name : String) is
    begin
       Put_Line (File, "type " & Name & " is record");
@@ -251,8 +261,11 @@ package body Codegen.Output is
       Put_Line (File, "return " & Name & ";");
    end Return_Entity;
 
-   --  Declare all Ada Types contained in TDM in the correct order
-   procedure Declare_Types (Pkg : Ada_Package_Type) is
+   ---------------------------
+   -- Declare_Types_Package --
+   ---------------------------
+   --  Declare a package containing the types in `Types_Pkg`
+   procedure Declare_Types_Package (Types_Pkg : Ada_Types_Package_Type) is
       --  Produce an acceptable order for dependency resolution
       --  'Elaborate' the type declaration order
       package ATDL is new Ada.Containers.Vectors
@@ -278,23 +291,27 @@ package body Codegen.Output is
                when Array_Kind =>
                   if not Bookkeeping.Contains (TD.Array_Element_Type_Code) then
                      Resolve_Dependency
-                       (Pkg.Type_Declarations (TD.Array_Element_Type_Code));
+                       (Types_Pkg.Type_Declarations
+                         (TD.Array_Element_Type_Code));
                   end if;
                when Ordered_Dict_Kind | Hashed_Dict_Kind =>
                   if not Bookkeeping.Contains (TD.Dict_Key_Type_Code) then
                      Resolve_Dependency
-                       (Pkg.Type_Declarations (TD.Dict_Key_Type_Code));
+                       (Types_Pkg.Type_Declarations
+                         (TD.Dict_Key_Type_Code));
                   end if;
 
                   if not Bookkeeping.Contains (TD.Dict_Element_Type_Code) then
                      Resolve_Dependency
-                       (Pkg.Type_Declarations (TD.Dict_Element_Type_Code));
+                       (Types_Pkg.Type_Declarations
+                         (TD.Dict_Element_Type_Code));
                   end if;
                when Struct_Kind =>
                   for SM of TD.Struct_Members loop
                      if not Bookkeeping.Contains (SM.Type_Code) then
                         Resolve_Dependency
-                          (Pkg.Type_Declarations (SM.Type_Code));
+                          (Types_Pkg.Type_Declarations
+                            (SM.Type_Code));
                      end if;
                   end loop;
             end case;
@@ -303,7 +320,7 @@ package body Codegen.Output is
             Result.Append (TD);
          end Resolve_Dependency;
       begin
-         for TD of Pkg.Type_Declarations loop
+         for TD of Types_Pkg.Type_Declarations loop
             if not Bookkeeping.Contains (TD.Type_Code) then
                Resolve_Dependency (TD);
             end if;
@@ -311,60 +328,88 @@ package body Codegen.Output is
          return Result;
       end Resolve_Dependencies;
    begin
-      for TD of Resolve_Dependencies loop
-         case TD.Kind is
-            when Basic_Kind | Variant_Kind =>
-               null;
-            when Array_Kind =>
-               Declare_Package
-                 ("Pkg_" & (+TD.Name),
-                  "new Ada.Containers.Vectors (Positive, " &
-                  (+Pkg.Type_Declarations
-                     (TD.Array_Element_Type_Code).Name) &
-                  ")");
+      --!pp off
+      Use_Pragma ("Ada_2005");
+      With_Entity ("Ada.Strings.Unbounded");
+      Use_Type ("Ada.Strings.Unbounded.Unbounded_String");
+      With_Entity ("Ada.Strings.Unbounded.Hash");
+      With_Entity ("Ada.Containers.Vectors");
+      With_Entity ("Ada.Containers.Ordered_Maps");
+      With_Entity ("Ada.Containers.Hashed_Maps");
+      With_Entity ("Interfaces");
+      Use_Entity ("Interfaces");
+      Codegen.Output.New_Line;
 
-               Declare_Subtype (+TD.Name, "Pkg_" & (+TD.Name) & ".Vector");
-               Use_Type (+TD.Name);
-               Codegen.Output.New_Line;
-            when Struct_Kind =>
-               Start_Record (+TD.Name);
-               for SM of TD.Struct_Members loop
-                  Declare_Entity
-                    (+SM.Name,
-                     (+Pkg.Type_Declarations (SM.Type_Code).Name));
-               end loop;
-               End_Record;
-               Codegen.Output.New_Line;
-            when Ordered_Dict_Kind =>
-               Declare_Package
-                 ("Pkg_" & (+TD.Name),
-                  "new Ada.Containers.Ordered_Maps (" &
-                  (+Pkg.Type_Declarations (TD.Dict_Key_Type_Code).Name) &
-                  ", " &
-                  (+Pkg.Type_Declarations
-                     (TD.Dict_Element_Type_Code).Name) &
-                  ")");
+      With_Entity ("GNAT.OS_Lib");
+      Codegen.Output.New_Line;
 
-               Declare_Subtype (+TD.Name, "Pkg_" & (+TD.Name) & ".Map");
-               Use_Type (+TD.Name);
-               Codegen.Output.New_Line;
-            when Hashed_Dict_Kind =>
-               Declare_Package
-                 ("Pkg_" & (+TD.Name),
-                  "new Ada.Containers.Hashed_Maps (" &
-                  (+Pkg.Type_Declarations (TD.Dict_Key_Type_Code).Name) &
-                  ", " &
-                  (+Pkg.Type_Declarations
-                     (TD.Dict_Element_Type_Code).Name) &
-                  ", Ada.Strings.Unbounded.Hash, " & ASCII.Quotation & "=" &
-                  ASCII.Quotation & ")");
+      With_Entity ("D_Bus.Arguments.Basic");
+      With_Entity ("D_Bus.Arguments.Containers");
+      Use_Type ("D_Bus.Arguments.Containers.Variant_Type");
+      With_Entity ("D_Bus.Extra");
+      With_Entity ("D_Bus.Support");
+      Codegen.Output.New_Line;
 
-               Declare_Subtype (+TD.Name, "Pkg_" & (+TD.Name) & ".Map");
-               Use_Type (+TD.Name);
-               Codegen.Output.New_Line;
-         end case;
-      end loop;
-   end Declare_Types;
+      Start_Package ("D_Bus.Generated_Types");
+         --  Generated Types
+         for TD of Resolve_Dependencies loop
+            case TD.Kind is
+               when Basic_Kind | Variant_Kind =>
+                  null;
+               when Array_Kind =>
+                  Declare_Package
+                    ("Pkg_" & (+TD.Name),
+                     "new Ada.Containers.Vectors (Positive, " &
+                     (+Types_Pkg.Type_Declarations
+                        (TD.Array_Element_Type_Code).Name) &
+                     ")");
+
+                  Declare_Subtype (+TD.Name, "Pkg_" & (+TD.Name) & ".Vector");
+                  Use_Type (+TD.Name);
+                  Codegen.Output.New_Line;
+               when Struct_Kind =>
+                  Start_Record (+TD.Name);
+                  for SM of TD.Struct_Members loop
+                     Declare_Entity
+                       (+SM.Name,
+                        (+Types_Pkg.Type_Declarations (SM.Type_Code).Name));
+                  end loop;
+                  End_Record;
+                  Codegen.Output.New_Line;
+               when Ordered_Dict_Kind =>
+                  Declare_Package
+                    ("Pkg_" & (+TD.Name),
+                     "new Ada.Containers.Ordered_Maps (" &
+                     (+Types_Pkg.Type_Declarations
+                       (TD.Dict_Key_Type_Code).Name) &
+                     ", " &
+                     (+Types_Pkg.Type_Declarations
+                        (TD.Dict_Element_Type_Code).Name) &
+                     ")");
+
+                  Declare_Subtype (+TD.Name, "Pkg_" & (+TD.Name) & ".Map");
+                  Use_Type (+TD.Name);
+                  Codegen.Output.New_Line;
+               when Hashed_Dict_Kind =>
+                  Declare_Package
+                    ("Pkg_" & (+TD.Name),
+                     "new Ada.Containers.Hashed_Maps (" &
+                     (+Types_Pkg.Type_Declarations
+                       (TD.Dict_Key_Type_Code).Name) &
+                     ", " &
+                     (+Types_Pkg.Type_Declarations
+                        (TD.Dict_Element_Type_Code).Name) &
+                     ", Ada.Strings.Unbounded.Hash, " & ASCII.Quotation & "=" &
+                     ASCII.Quotation & ")");
+
+                  Declare_Subtype (+TD.Name, "Pkg_" & (+TD.Name) & ".Map");
+                  Use_Type (+TD.Name);
+                  Codegen.Output.New_Line;
+            end case;
+         end loop;
+      End_Package ("D_Bus.Generated_Types");
+      --!pp on
+   end Declare_Types_Package;
 
    -------------------
    -- Sanitise_Name --
@@ -444,12 +489,38 @@ package body Codegen.Output is
       end;
    end Sanitise_Name;
 
+   ------------------
+   -- Package_Name --
+   ------------------
+   function Package_Name (Name : String) return String is
+      Sanitised : String := Sanitise_Name (Name);
+   begin
+      --  Handle the root object path
+      if Sanitised = "/" then
+         return "Root";
+      end if;
+
+      --  Replace '/' and '.' with '_'
+      for C of Sanitised loop
+         if C in '/' | '.' then
+            C := '_';
+         end if;
+      end loop;
+
+      --  Prevent '_'
+      if Sanitised (Sanitised'First) = '_' then
+         return Sanitised (Sanitised'First + 1 .. Sanitised'Last);
+      else
+         return Sanitised;
+      end if;
+   end Package_Name;
+
    procedure Exception_Code is
    begin
       Put_Line (File, "exception");
    end Exception_Code;
    procedure When_Exception (Name : String) is
    begin
-      Put_Line (File, "When X : " & Name & " =>");
+      Put_Line (File, "when X : " & Name & " =>");
    end When_Exception;
 end Codegen.Output;

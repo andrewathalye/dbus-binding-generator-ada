@@ -3,6 +3,7 @@ with Ada.Strings.Unbounded;
 with Ada.Command_Line;
 with Ada.Directories;
 
+with Codegen.Output;
 with GNAT.Command_Line;
 with GNAT.OS_Lib;
 
@@ -16,12 +17,13 @@ with Schema.Dom_Readers;
 with Schema.Schema_Readers;
 with Schema.Validators;
 
---  Local Codegen
+--  Basic Codegen
 with Parsing;
 with Codegen;
 
-with Codegen.Client_Spec;
-with Codegen.Client_Body;
+--  Client Codegen
+with Codegen.Client.Node;
+with Codegen.Client.Iface;
 
 --  Utils
 with Shared; use Shared;
@@ -171,9 +173,20 @@ begin
    -- Generate code --
    -------------------
    declare
+      Types_Pkg : Codegen.Ada_Types_Package_Type;
+      --  All collected type declarations
+
       procedure Recurse_Node (LN : in out Parsing.Node_Type);
       procedure Recurse_Node (LN : in out Parsing.Node_Type) is
       begin
+         case Mode is
+            when Client =>
+               Codegen.Client.Node.Print_Spec (LN);
+               Codegen.Client.Node.Print_Body (LN);
+            when Server =>
+               raise Program_Error with "Server codegen unimplemented";
+         end case;
+
          for N of LN.Child_Nodes loop
             Recurse_Node (N.all);
             Parsing.Free (N);
@@ -184,10 +197,12 @@ begin
                Pkg : constant Codegen.Ada_Package_Type :=
                  Codegen.Create_Package (LN.Name, I);
             begin
+               Codegen.Append_Types (Types_Pkg, Pkg);
+
                case Mode is
                   when Client =>
-                     Codegen.Client_Spec.Print (Pkg);
-                     Codegen.Client_Body.Print (Pkg);
+                     Codegen.Client.Iface.Print_Spec (Pkg);
+                     Codegen.Client.Iface.Print_Body (Pkg);
                   when Server =>
                      raise Program_Error with "Server codegen unimplemented";
                end case;
@@ -200,5 +215,8 @@ begin
       end Recurse_Node;
    begin
       Recurse_Node (Node);
+
+      Codegen.Output.Declare_Types_Package (Types_Pkg);
+      Put_Debug ("Generated types package");
    end;
 end DBus_Binding_Generator_Ada;

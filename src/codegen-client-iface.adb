@@ -3,20 +3,81 @@ use Codegen.Output.Client;
 use Codegen.Output;
 
 with Codegen.Binding; use Codegen.Binding;
-with Codegen.Client_Body.Add_Builtins;
-
-with Parsing;
-use type Parsing.DBus_Direction;
-
-with Type_Checking; use Type_Checking;
 
 with Shared; use Shared;
+with Type_Checking; use Type_Checking;
 
-package body Codegen.Client_Body is
-   -----------
-   -- Print --
-   -----------
-   procedure Print (Pkg : Ada_Package_Type) is
+package body Codegen.Client.Iface is
+   ----------------
+   -- Print_Spec --
+   ----------------
+   procedure Print_Spec (Pkg : Ada_Package_Type) is
+   begin
+      --  Preamble
+      Use_Pragma ("Ada_2005");
+
+      With_Entity ("Ada.Strings.Unbounded");
+      With_Entity ("Interfaces");
+      --  All basic number types
+      New_Line;
+
+      With_Entity ("GNAT.OS_Lib");
+      --  `File_Descriptor`
+      New_Line;
+
+      With_Entity ("D_Bus.Arguments.Containers");
+      --  `Variant_Type`
+
+      With_Entity ("D_Bus.Support");
+      --  `Unbounded_Object_Path`, `Unbounded_Signature`
+
+      With_Entity ("D_Bus.Generated_Types");
+      Use_Entity ("D_Bus.Generated_Types");
+      --  <>
+      New_Line;
+
+      --  Package Spec
+      --!pp off
+      Start_Package (+Pkg.Name);
+         if not Pkg.Methods.Is_Empty then
+            Large_Comment ("Methods");
+            for M of Pkg.Methods loop
+               Declare_Procedure (Method_Signature (M));
+               New_Line;
+            end loop;
+         end if;
+
+         if not Pkg.Signals.Is_Empty then
+            Large_Comment ("Signals");
+            for S of Pkg.Signals loop
+               Declare_Procedure (Signal_Signature (S));
+               New_Line;
+            end loop;
+         end if;
+
+         if not Pkg.Properties.Is_Empty then
+            Large_Comment ("Properties");
+            for P of Pkg.Properties loop
+               if P.PAccess in Parsing.Read | Parsing.Readwrite then
+                  Declare_Function (Property_Read_Signature (P));
+               end if;
+
+               if P.PAccess in Parsing.Write | Parsing.Readwrite then
+                  Declare_Procedure (Property_Write_Signature (P));
+               end if;
+               New_Line;
+            end loop;
+         end if;
+      End_Package (+Pkg.Name);
+      --!pp on
+   end Print_Spec;
+
+   ----------------
+   -- Print_Body --
+   ----------------
+   procedure Print_Body (Pkg : Ada_Package_Type) is
+      use type Parsing.DBus_Direction;
+
       --  Applies `A` to `Request_Args`
       procedure Apply_In_Argument (A : Parsing.Argument_Type);
       procedure Apply_In_Argument (A : Parsing.Argument_Type) is
@@ -70,18 +131,16 @@ package body Codegen.Client_Body is
    begin
       --!pp off
       --  Preamble
-      With_Entity ("D_Bus.Connection");
-      With_Entity ("D_Bus.Connection.Dispatch");
       With_Entity ("D_Bus.Types");
-      Use_Type ("D_Bus.Types.Obj_Path");
       With_Entity ("D_Bus.Arguments.Basic");
-      With_Entity ("D_Bus.Messages");
       With_Entity ("D_Bus.Extra");
+      With_Entity ("D_Bus.Support");
 
       --  Package
       Start_Package_Body (+Pkg.Name);
-         --  Builtin
-         Add_Builtins (Pkg);
+         --  Declares
+         Declare_Entity
+           ("Iface", "constant String", """" & (+Pkg.Iface) & """");
 
          --  Methods
          if not Pkg.Methods.Is_Empty then
@@ -94,6 +153,8 @@ package body Codegen.Client_Body is
                Declare_Entity
                  ("Reply_Args", "D_Bus.Arguments.Argument_List_Type");
             Begin_Code;
+               Call ("Assert_Has_Destination");
+
                --  Bind each in argument
                for A of M.Arguments loop
                   if A.Direction = Parsing.DIn then
@@ -102,9 +163,10 @@ package body Codegen.Client_Body is
                end loop;
 
                --  The method call itself
-               Call
-                 ("Call_Remote (Iface, """ & (+M.Name) & """, Request_Args" &
-                  ", Reply_Args)");
+               Assign
+                 ("Reply_Args",
+                  "D_Bus.Support.Call_Blocking (Get_Destination, Get_Node," &
+                  " Iface, """ & (+M.Name) & """, Request_Args)");
 
                --  Bind each out argument
                declare
@@ -134,32 +196,16 @@ package body Codegen.Client_Body is
          for S of Pkg.Signals loop
             Start_Procedure (Signal_Signature (S));
                Declare_Entity ("Args", "D_Bus.Arguments.Argument_List_Type");
-               Declare_Entity
-                 ("Match_Rule",
-                  "constant String",
-                  """path="" & D_Bus.Types.To_String (Path) & " &
-                  """, interface="" & Iface & "", member=" &
-                  (+S.Name) & """");
             Begin_Code;
-               --  Add match rule
-               Call ("D_Bus.Connection.Add_Match (Connection, Match_Rule)");
+               Call ("Assert_Has_Destination");
 
-               --  Execute handler and interrupt (binding doesn’t offer a
-               --  one-time dispatch (yet)
-               Begin_Code;
-                  Call
-                    ("D_Bus.Connection.Dispatch (Connection," &
-                     " Signal_Handler'Access)");
-               Exception_Code;
-                  When_Exception ("Signal_Handled");
-                     Call ("null");
-               End_Code;
-
-               --  Remove match rule
-               Call ("Remove_Match (Match_Rule)");
+               Assign
+                 ("Args",
+                  "D_Bus.Messages.Get_Arguments" &
+                  " (D_Bus.Support.Await_Signal (Get_Node, Iface," &
+                  " """ & (+S.Name) & """))");
 
                --  Bind arguments
-               Assign ("Args", "D_Bus.Messages.Get_Arguments (Signal_Msg)");
                declare
                   Index : Positive := 1;
                begin
@@ -194,9 +240,12 @@ package body Codegen.Client_Body is
                      Declare_Entity ("Property", DBus_Type);
                      Declare_Entity ("Property_Ada", Ada_Type);
                   Begin_Code;
+                     Call ("Assert_Has_Destination");
+
                      Assign
                        ("Property",
-                        DBus_Type & " (Get_Property (""" &
+                        DBus_Type & " (D_Bus.Support.Get_Property" &
+                        " (Get_Destination, Get_Node, Iface, """ &
                         (+P.Name) & """))");
                      Codegen.Binding.Bind_To_Ada
                        (Pkg => Pkg,
@@ -214,16 +263,20 @@ package body Codegen.Client_Body is
                   Declare_Entity
                     ("Property", Get_Library_DBus_Type (+P.Type_Code));
                Begin_Code;
+                  Call ("Assert_Has_Destination");
+
                   Codegen.Binding.Bind_To_DBus
                     (Pkg => Pkg,
                      TD => Pkg.Type_Declarations (P.Type_Code),
                      Ada_Name => "Value",
                      DBus_Name => "Property");
-                  Call ("Set_Property (""" & (+P.Name) & """, Property)");
+                  Call
+                    ("D_Bus.Support.Set_Property (Get_Destination, Get_Node," &
+                     " Iface, """ & (+P.Name) & """, Property)");
                End_Procedure (Property_Write_Name (P));
             end if;
          end loop;
       End_Package (+Pkg.Name);
       --!pp on
-   end Print;
-end Codegen.Client_Body;
+   end Print_Body;
+end Codegen.Client.Iface;

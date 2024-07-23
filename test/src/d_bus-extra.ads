@@ -14,6 +14,7 @@ package D_Bus.Extra is
    ------------
    type Double is new Interfaces.IEEE_Float_64;
    type Double_Type is new D_Bus.Arguments.Basic_Type with private;
+   for Double_Type'External_Tag use "d";
 
    function To_String (Arg : Double_Type) return String;
    function To_Ada (Arg : Double_Type) return Double;
@@ -21,18 +22,19 @@ package D_Bus.Extra is
    function "+" (L : Double) return Double_Type;
 
    overriding procedure Serialize
-     (Arg : Double_Type;
+     (Arg   : Double_Type;
       D_Arg : not null access dbus_message_h.DBusMessageIter);
 
    overriding function Deserialize
      (D_Arg : not null access dbus_message_h.DBusMessageIter)
-     return Double_Type;
+      return Double_Type;
 
    ---------------------
    -- FILE_DESCRIPTOR --
    ---------------------
    type File_Descriptor is new GNAT.OS_Lib.File_Descriptor;
    type File_Descriptor_Type is new D_Bus.Arguments.Basic_Type with private;
+   for File_Descriptor_Type'External_Tag use "h";
 
    function To_String (Arg : File_Descriptor_Type) return String;
    function To_Ada (Arg : File_Descriptor_Type) return File_Descriptor;
@@ -40,12 +42,12 @@ package D_Bus.Extra is
    function "+" (L : File_Descriptor) return File_Descriptor_Type;
 
    overriding procedure Serialize
-     (Arg : File_Descriptor_Type;
+     (Arg   : File_Descriptor_Type;
       D_Arg : not null access dbus_message_h.DBusMessageIter);
 
    overriding function Deserialize
      (D_Arg : not null access dbus_message_h.DBusMessageIter)
-     return File_Descriptor_Type;
+      return File_Descriptor_Type;
 
    ---------------
    -- SIGNATURE --
@@ -57,6 +59,7 @@ package D_Bus.Extra is
    --  Invalid_Signature will be raised.
 
    type Signature_Type is new D_Bus.Arguments.Basic_Type with private;
+   for Signature_Type'External_Tag use "g";
 
    function To_String (Arg : Signature_Type) return String;
    function To_Ada (Arg : Signature_Type) return Signature;
@@ -64,12 +67,12 @@ package D_Bus.Extra is
    function "+" (L : Signature) return Signature_Type;
 
    overriding procedure Serialize
-     (Arg : Signature_Type;
+     (Arg   : Signature_Type;
       D_Arg : not null access dbus_message_h.DBusMessageIter);
 
    overriding function Deserialize
      (D_Arg : not null access dbus_message_h.DBusMessageIter)
-     return Signature_Type;
+      return Signature_Type;
 
 private
    type Double_Type is new D_Bus.Arguments.Basic_Type with record
