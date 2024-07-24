@@ -172,9 +172,7 @@ package body Codegen is
    --------------------
    -- Create_Package --
    --------------------
-   function Create_Package
-     (Node : Ada.Strings.Unbounded.Unbounded_String; I : Interface_Type)
-      return Ada_Package_Type
+   function Create_Package (I : Interface_Type) return Ada_Package_Type
    is
       use Ada.Strings.Unbounded;
 
@@ -182,8 +180,7 @@ package body Codegen is
    begin
       Append (Pkg.Name, Codegen.Output.Sanitise_Name (+I.Name));
 
-      Pkg.Node  := Node;
-      Pkg.Iface := I.Name;
+      Pkg.Real_Name := I.Name;
 
       -----------
       -- Types --

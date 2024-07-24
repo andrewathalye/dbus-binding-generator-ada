@@ -51,11 +51,12 @@ package body Codegen.Client.Iface is
          if Pkg.Properties.Is_Empty then
             Declare_Type
               ("Child_Interface",
-               "interface and D_Bus.Support.Root_Interface");
+               "limited interface and D_Bus.Support.Root_Interface");
          else
             Declare_Type
               ("Child_Interface",
-               "interface and " & Properties_Package & ".Child_Interface");
+               "limited interface and " &
+               Properties_Package & ".Child_Interface");
          end if;
 
          if not Pkg.Methods.Is_Empty then
@@ -167,7 +168,7 @@ package body Codegen.Client.Iface is
       Start_Package_Body (+Pkg.Name);
          --  Declares
          Declare_Entity
-           ("Iface", "constant String", """" & (+Pkg.Iface) & """");
+           ("Iface", "constant String", """" & (+Pkg.Real_Name) & """");
 
          --  Methods
          if not Pkg.Methods.Is_Empty then
@@ -230,12 +231,11 @@ package body Codegen.Client.Iface is
             End_Procedure (Signal_Unregister_Name (S));
 
             Start_Procedure (Signal_Await_Signature (S));
+               Declare_Entity ("Msg", "D_Bus.Messages.Message_Type");
                Declare_Entity ("Args", "D_Bus.Arguments.Argument_List_Type");
             Begin_Code;
-               Assign
-                 ("Args",
-                  "D_Bus.Messages.Get_Arguments (O.Await_Signal (Iface, """ &
-                  (+S.Name) & """))");
+               Call ("O.Await_Signal (Msg, Iface, """ & (+S.Name) & """)");
+               Assign ("Args", "D_Bus.Messages.Get_Arguments (Msg)");
 
                --  Bind arguments
                declare

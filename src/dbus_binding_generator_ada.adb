@@ -1,5 +1,6 @@
 with Ada.Text_IO;
-with Ada.Strings.Unbounded;
+with Ada.Containers.Indefinite_Doubly_Linked_Lists;
+with Ada.Containers.Doubly_Linked_Lists;
 with Ada.Command_Line;
 with Ada.Directories;
 
@@ -23,13 +24,21 @@ with Codegen.Types;
 
 --  Client Codegen
 with Codegen.Client.Iface;
-with Codegen.Client.Objects;
 
 --  Utils
 with Shared; use Shared;
 with Debug;  use Debug;
 
 procedure DBus_Binding_Generator_Ada is
+   --------------------
+   -- Instantiations --
+   --------------------
+   package File_Lists is new Ada.Containers.Indefinite_Doubly_Linked_Lists
+     (String);
+   use type Parsing.Node_Type;
+   package Node_Lists is new Ada.Containers.Doubly_Linked_Lists
+     (Parsing.Node_Type);
+
    -----------------
    -- Subprograms --
    -----------------
@@ -39,7 +48,7 @@ procedure DBus_Binding_Generator_Ada is
    begin
       Put_Line
         ("Usage: " & Ada.Command_Line.Command_Name &
-         " [input file] [client|server]");
+         " [-client | -server] [input files]");
       GNAT.OS_Lib.OS_Exit (-1);
    end Show_Help;
 
@@ -54,20 +63,19 @@ procedure DBus_Binding_Generator_Ada is
    -----------
    -- Types --
    -----------
-   type Client_Server is (Client, Server);
+   type Client_Server is (Undefined, Client, Server);
 
    ---------------
    -- Variables --
    ---------------
-   Input_File : Ada.Strings.Unbounded.Unbounded_String;
-   Mode       : Client_Server;
+   File_List : File_Lists.List;
+   Node_List : Node_Lists.List;
+   Mode       : Client_Server := Undefined;
 
    ---------
    -- XML --
    ---------
    Grammar  : Schema.Validators.XML_Grammar;
-   Document : DOM.Core.Document;
-   Node     : Parsing.Node_Type;
 begin
    Put_Debug ("dbus_binding_generator_ada");
 
@@ -76,7 +84,13 @@ begin
    ---------------
    loop
       begin
-         case GNAT.Command_Line.Getopt ("h help -help") is
+         case GNAT.Command_Line.Getopt ("* client server help -help") is
+            when 'c' =>
+               Mode := Client;
+            when 's' =>
+               Mode := Server;
+            when '*' =>
+               File_List.Append (GNAT.Command_Line.Full_Switch);
             when ASCII.NUL =>
                exit;
             when others =>
@@ -85,41 +99,33 @@ begin
       exception
          when GNAT.Command_Line.Invalid_Switch =>
             GNAT.Command_Line.Try_Help;
+            return;
       end;
    end loop;
 
    ------------
    -- Checks --
    ------------
-   --  Load input file
-   case Ada.Command_Line.Argument_Count is
-      when 2 =>
-         Input_File := +Ada.Command_Line.Argument (1);
+   if Mode = Undefined then
+      Show_Help;
+   end if;
 
-         begin
-            Mode := Client_Server'Value (Ada.Command_Line.Argument (2));
-         exception
-            when Constraint_Error =>
-               Show_Help;
-         end;
-      when others =>
-         Show_Help;
-   end case;
-
-   --  Check that these exist
+   --  Check that input files exist
    declare
       use type Ada.Directories.File_Kind;
    begin
-      if Ada.Directories.Exists (+Input_File)
-        and then Ada.Directories.Kind (+Input_File) =
-          Ada.Directories.Ordinary_File
-      then
-         null;
-      else
-         Error_Message
-           ("Input file " & (+Input_File) &
-            " does not exist or is not a file.");
-      end if;
+      for File of File_List loop
+         if Ada.Directories.Exists (File)
+            and then Ada.Directories.Kind (File) =
+               Ada.Directories.Ordinary_File
+         then
+            null;
+         else
+            Error_Message
+              ("Input file " & File &
+               " does not exist or is not an ordinary file.");
+         end if;
+      end loop;
    end;
 
    -----------------
@@ -141,59 +147,72 @@ begin
    end;
    Put_Debug ("Loaded grammar");
 
-   -----------------------------------
-   -- Load document from input file --
-   -----------------------------------
+   --------------------------------
+   -- Parse all files into nodes --
+   --------------------------------
    declare
       Input  : Input_Sources.File.File_Input;
       Reader : Schema.Dom_Readers.Tree_Reader;
+      Document : DOM.Core.Document;
+
+      function Parse_File (Name : String) return Parsing.Node_Type;
+      function Parse_File (Name : String) return Parsing.Node_Type is
+         Result : Parsing.Node_Type;
+      begin
+         -----------------------------------
+         -- Load document from input file --
+         -----------------------------------
+         declare
+         begin
+            Input_Sources.File.Open (Name, Input);
+            Reader.Parse (Input);
+            Input.Close;
+            Document := Reader.Get_Tree;
+            Reader.Free;
+         exception
+            when Schema.Validators.XML_Validation_Error =>
+               Error_Message ("ERROR: " & Reader.Get_Error_Message);
+         end;
+         Put_Debug ("Loaded tree");
+
+         ----------------------
+         -- Process document --
+         ----------------------
+         Result := Parsing.Process_Node
+           (DOM.Core.Documents.Get_Element (Document));
+         DOM.Core.Nodes.Free (Document);
+         Put_Debug ("Parsed nodes for " & Name);
+
+         return Result;
+      end Parse_File;
    begin
       Reader.Set_Grammar (Grammar);
       Reader.Set_Feature (Sax.Readers.Schema_Validation_Feature, True);
 
-      Input_Sources.File.Open (+Input_File, Input);
-      Reader.Parse (Input);
-      Input.Close;
-      Document := Reader.Get_Tree;
-      Reader.Free;
-   exception
-      when Schema.Validators.XML_Validation_Error =>
-         Error_Message ("ERROR: " & Reader.Get_Error_Message);
+      for File of File_List loop
+         Node_List.Append (Parse_File (File));
+      end loop;
    end;
-   Put_Debug ("Loaded tree");
-
-   ----------------------
-   -- Process document --
-   ----------------------
-   --  Note: The document must be valid by definition
-   Node := Parsing.Process_Node (DOM.Core.Documents.Get_Element (Document));
-   DOM.Core.Nodes.Free (Document);
-   Put_Debug ("Parsed nodes");
 
    -------------------
    -- Generate code --
    -------------------
    declare
-      Objects_Pkg : Codegen.Client.Objects.Ada_Objects_Package_Type;
-      --  All collected object declarations
-
       Types_Pkg : Codegen.Types.Ada_Types_Package_Type;
       --  All collected type declarations
 
-      procedure Recurse_Node (LN : in out Parsing.Node_Type);
-      procedure Recurse_Node (LN : in out Parsing.Node_Type) is
+      procedure Recurse_Node (Node : in out Parsing.Node_Type);
+      procedure Recurse_Node (Node : in out Parsing.Node_Type) is
       begin
-         Codegen.Client.Objects.Append_Objects (Objects_Pkg, LN);
-
-         for N of LN.Child_Nodes loop
-            Recurse_Node (N.all);
-            Parsing.Free (N);
+         for Child_Node of Node.Child_Nodes loop
+            Recurse_Node (Child_Node.all);
+            Parsing.Free (Child_Node);
          end loop;
 
-         for I of LN.Interfaces loop
+         for I of Node.Interfaces loop
             declare
                Pkg : constant Codegen.Ada_Package_Type :=
-                 Codegen.Create_Package (LN.Name, I);
+                 Codegen.Create_Package (I);
             begin
                Codegen.Types.Append_Types (Types_Pkg, Pkg);
 
@@ -203,19 +222,19 @@ begin
                      Codegen.Client.Iface.Print_Body (Pkg);
                   when Server =>
                      raise Program_Error with "Server codegen unimplemented";
+                  when Undefined => null;
                end case;
 
                Put_Debug ("Generated interface " & (+I.Name));
             end;
          end loop;
 
-         Put_Debug ("Generated all interfaces for node " & (+LN.Name));
+         Put_Debug ("Generated all interfaces for node " & (+Node.Name));
       end Recurse_Node;
    begin
-      Recurse_Node (Node);
-
-      Codegen.Client.Objects.Print (Objects_Pkg);
-      Put_Debug ("Generated objects package");
+      for Top_Level_Node of Node_List loop
+         Recurse_Node (Top_Level_Node);
+      end loop;
 
       Codegen.Types.Print (Types_Pkg);
       Put_Debug ("Generated types package");

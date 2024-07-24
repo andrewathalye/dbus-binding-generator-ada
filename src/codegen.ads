@@ -14,8 +14,7 @@ package Codegen is
    --  An Ada type declaration (with info about D_Bus mappings)
 
    function Create_Package
-     (Node : Ada.Strings.Unbounded.Unbounded_String;
-      I    : Parsing.Interface_Type) return Ada_Package_Type;
+     (I : Parsing.Interface_Type) return Ada_Package_Type;
    --  Return an Ada Package object based on the DBus interface
 
 private
@@ -65,8 +64,7 @@ private
    --  Packages
    type Ada_Package_Type is record
       Name              : Ada.Strings.Unbounded.Unbounded_String;
-      Node              : Ada.Strings.Unbounded.Unbounded_String;
-      Iface             : Ada.Strings.Unbounded.Unbounded_String;
+      Real_Name             : Ada.Strings.Unbounded.Unbounded_String;
       Type_Declarations : Ada_Type_Declaration_Map;
       Methods           : Parsing.Method_List;
       Signals           : Parsing.Signal_List;

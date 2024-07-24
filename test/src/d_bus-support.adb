@@ -1,22 +1,27 @@
 pragma Ada_2012;
 
 with Ada.Unchecked_Conversion;
-with Ada.Unchecked_Deallocation;
 with Interfaces.C;
 with System;
+with System.Address_To_Access_Conversions;
 
 with D_Bus.Arguments.Basic;
+with D_Bus.Connection;
+with D_Bus.Messagebox;
 
 with dbus_connection_h;
 with dbus_message_h;
 with dbus_shared_h;
 with dbus_types_h;
-with System.Address_To_Access_Conversions;
 
 package body D_Bus.Support is
    ---------------
    -- Internals --
    ---------------
+   Connection : constant D_Bus.Connection.Connection_Type :=
+      D_Bus.Connection.Connect;
+   Messages : D_Bus.Messagebox.Msg_List;
+
    type Connection_Overlay is record
       Thin_Connection : access dbus_connection_h.DBusConnection;
    end record;
@@ -25,10 +30,7 @@ package body D_Bus.Support is
      (D_Bus.Connection.Connection_Type, Connection_Overlay);
 
    type Signal_Data_Pack is record
-      Node : D_Bus.Types.Obj_Path;
-      Iface : Ada.Strings.Unbounded.Unbounded_String;
-      Name : Ada.Strings.Unbounded.Unbounded_String;
-      Match : Boolean := True;
+      Ran   : Boolean := False;
       Msg : D_Bus.Messages.Message_Type;
    end record;
 
@@ -48,27 +50,16 @@ package body D_Bus.Support is
    is
       pragma Unreferenced (D_Conn);
 
-      use D_Bus.Messages;
-      use D_Bus.Types;
-      use Ada.Strings.Unbounded;
-
       M : constant D_Bus.Messages.Message_Type :=
          D_Bus.Messages.Create (Msg);
       SDP : constant access Signal_Data_Pack := SDP_Conversions.To_Pointer
         (Usr_Data);
    begin
-      if Get_Path (M) = To_String (SDP.Node)
-         and Get_Interface (M) = To_String (SDP.Iface)
-         and Get_Member (M) = To_String (SDP.Name)
-      then
-         SDP.Match := True;
-      end if;
-
       SDP.Msg := M;
+      SDP.Ran := True;
 
       return dbus_shared_h.DBUS_HANDLER_RESULT_HANDLED;
    end Call_Back;
-   --  TODO: currently consumes non-signals
 
    procedure Null_Free_Data (Item : System.Address) is null;
    pragma Convention (C, Null_Free_Data);
@@ -99,7 +90,7 @@ package body D_Bus.Support is
          raise D_Bus_Error with "Asked to register duplicate signal.";
       end if;
 
-      D_Bus.Connection.Add_Match (O.Connection, Match_Rule);
+      D_Bus.Connection.Add_Match (Connection, Match_Rule);
       O.Signals.Insert (Iface & "/" & Name, Match_Rule);
    end Register_Signal;
 
@@ -118,7 +109,7 @@ package body D_Bus.Support is
          D_Bus.Arguments.Append (Args, +Rule);
          Discard :=
            D_Bus.Connection.Call_Blocking
-             (Connection => O.Connection,
+             (Connection => Connection,
               Destination => "org.freedesktop.DBus",
               Path => +"/org/freedesktop/DBus",
               Iface => "org.freedesktop.DBus",
@@ -136,18 +127,33 @@ package body D_Bus.Support is
       O.Signals.Delete (Iface & "/" & Name);
    end Unregister_Signal;
 
-   function Await_Signal
-     (O : Root_Object;
+   procedure Await_Signal
+     (O : in out Root_Object;
+      Msg : out D_Bus.Messages.Message_Type;
       Iface : String;
-      Name : String) return D_Bus.Messages.Message_Type
+      Name : String)
    is
-      use Ada.Strings.Unbounded;
-
-      use D_Bus.Messages;
-      use D_Bus.Types;
-
       use type Interfaces.C.int;
       use type dbus_types_h.dbus_bool_t;
+
+      function Is_Match
+        (Msg : D_Bus.Messages.Message_Type;
+         Node : D_Bus.Types.Obj_Path;
+         Iface : String;
+         Member : String) return Boolean;
+      function Is_Match
+        (Msg : D_Bus.Messages.Message_Type;
+         Node : D_Bus.Types.Obj_Path;
+         Iface : String;
+         Member : String) return Boolean
+      is
+         use D_Bus.Messages;
+         use D_Bus.Types;
+      begin
+         return Get_Path (Msg) = To_String (Node)
+            and Get_Interface (Msg) = Iface
+            and Get_Member (Msg) = Member;
+      end Is_Match;
 
       --  Variables
       CO : Connection_Overlay;
@@ -155,22 +161,20 @@ package body D_Bus.Support is
       D_Res : dbus_types_h.dbus_bool_t;
    begin
       Assert_Valid (O);
-      CO := Convert (O.Connection);
+      CO := Convert (Connection);
 
       --  Check queued messages
-      for Msg of O.Messages.all loop
-         if Get_Path (Msg) = To_String (O.Node)
-            and Get_Interface (Msg) = Iface
-            and Get_Member (Msg) = Name
-         then
+      for Q_Msg of Messages loop
+         if Is_Match (Q_Msg, O.Node, Iface, Name) then
             declare
                C : D_Bus.Messagebox.ML.Cursor;
             begin
-               C := O.Messages.Find (Msg);
-               O.Messages.Delete (C);
+               C := Messages.Find (Q_Msg);
+               Messages.Delete (C);
             end;
 
-            return Msg;
+            Msg := Q_Msg;
+            return;
          end if;
       end loop;
 
@@ -186,11 +190,8 @@ package body D_Bus.Support is
       end if;
 
       --  Dispatch
-      SDP.Node := O.Node;
-      SDP.Iface := To_Unbounded_String (Iface);
-      SDP.Name := To_Unbounded_String (Name);
-
-      while not SDP.Match loop
+      loop
+         SDP.Ran := False;
          D_Res := dbus_connection_h.dbus_connection_read_write_dispatch
            (CO.Thin_Connection, -1);
 
@@ -198,8 +199,13 @@ package body D_Bus.Support is
             raise D_Bus_Error with "Dispatch failed";
          end if;
 
-         if not SDP.Match then
-            O.Messages.Append (SDP.Msg);
+         --  Exit if the message matches the pattern
+         if SDP.Ran then
+            if Is_Match (SDP.Msg, O.Node, Iface, Name) then
+               exit;
+            else
+               Messages.Append (SDP.Msg);
+            end if;
          end if;
       end loop;
 
@@ -207,7 +213,7 @@ package body D_Bus.Support is
       dbus_connection_h.dbus_connection_remove_filter
         (CO.Thin_Connection, Call_Back'Access, SDP'Address);
 
-      return SDP.Msg;
+      Msg := SDP.Msg;
    end Await_Signal;
 
    ----------------
@@ -230,7 +236,7 @@ package body D_Bus.Support is
       end if;
 
       return D_Bus.Connection.Call_Blocking
-        (Connection => O.Connection,
+        (Connection => Connection,
          Destination => To_String (O.Destination),
          Path => O.Node,
          Iface => Iface,
@@ -252,9 +258,7 @@ package body D_Bus.Support is
          raise D_Bus_Error with "Asked to recreate a valid object.";
       end if;
 
-      O.Connection := D_Bus.Connection.Connect;
       O.Node := +To_String (Node);
-      O.Messages := new D_Bus.Messagebox.Msg_List;
       O.Valid := True;
    end Create;
 
@@ -268,18 +272,11 @@ package body D_Bus.Support is
    end Set_Destination;
 
    procedure Destroy (O : in out Root_Object) is
-      procedure Free is new Ada.Unchecked_Deallocation
-        (D_Bus.Messagebox.Msg_List, Msg_List_Access);
-
-      CO : constant Connection_Overlay := Convert (O.Connection);
    begin
       Assert_Valid (O);
 
       O.Valid := False;
-      dbus_connection_h.dbus_connection_close (CO.Thin_Connection);
       O.Destination := Ada.Strings.Unbounded.Null_Unbounded_String;
       O.Signals.Clear;
-      O.Messages.Clear;
-      Free (O.Messages);
    end Destroy;
 end D_Bus.Support;

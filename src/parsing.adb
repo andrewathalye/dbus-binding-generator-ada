@@ -104,12 +104,6 @@ package body Parsing is
       --  Read name
       Node_Name := +DOM.Core.Elements.Get_Attribute (Node, "name");
 
-      if Node_Name = Ada.Strings.Unbounded.Null_Unbounded_String then
-         raise Program_Error
-           with "Unnamed root nodes are not supported." &
-           " Please name the node and rebind.";
-      end if;
-
       Put_Debug ("Node: " & (+Node_Name));
 
       --  Ugly, but the only way to iterate over direct children

@@ -76,7 +76,7 @@ package body Codegen.Output.Client is
       Args : constant String := Get_Arguments (S.Arguments, Client => True);
    begin
       return
-        Signal_Await_Name (S) & " (O : Child_Interface'Class" &
+        Signal_Await_Name (S) & " (O : in out Child_Interface'Class" &
         (if Args'Length > 0 then "; " & Args else "") & ")";
    end Signal_Await_Signature;
 
