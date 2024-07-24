@@ -3,7 +3,6 @@ with Ada.Strings.Unbounded;
 with Ada.Command_Line;
 with Ada.Directories;
 
-with Codegen.Output;
 with GNAT.Command_Line;
 with GNAT.OS_Lib;
 
@@ -20,10 +19,11 @@ with Schema.Validators;
 --  Basic Codegen
 with Parsing;
 with Codegen;
+with Codegen.Types;
 
 --  Client Codegen
-with Codegen.Client.Node;
 with Codegen.Client.Iface;
+with Codegen.Client.Objects;
 
 --  Utils
 with Shared; use Shared;
@@ -174,19 +174,16 @@ begin
    -- Generate code --
    -------------------
    declare
-      Types_Pkg : Codegen.Ada_Types_Package_Type;
+      Objects_Pkg : Codegen.Client.Objects.Ada_Objects_Package_Type;
+      --  All collected object declarations
+
+      Types_Pkg : Codegen.Types.Ada_Types_Package_Type;
       --  All collected type declarations
 
       procedure Recurse_Node (LN : in out Parsing.Node_Type);
       procedure Recurse_Node (LN : in out Parsing.Node_Type) is
       begin
-         case Mode is
-            when Client => null;
-               Codegen.Client.Node.Print_Spec (LN);
-               Codegen.Client.Node.Print_Body (LN);
-            when Server =>
-               raise Program_Error with "Server codegen unimplemented";
-         end case;
+         Codegen.Client.Objects.Append_Objects (Objects_Pkg, LN);
 
          for N of LN.Child_Nodes loop
             Recurse_Node (N.all);
@@ -198,10 +195,10 @@ begin
                Pkg : constant Codegen.Ada_Package_Type :=
                  Codegen.Create_Package (LN.Name, I);
             begin
-               Codegen.Append_Types (Types_Pkg, Pkg);
+               Codegen.Types.Append_Types (Types_Pkg, Pkg);
 
                case Mode is
-                  when Client => null;
+                  when Client =>
                      Codegen.Client.Iface.Print_Spec (Pkg);
                      Codegen.Client.Iface.Print_Body (Pkg);
                   when Server =>
@@ -212,12 +209,15 @@ begin
             end;
          end loop;
 
-         Put_Debug ("Generated node " & (+LN.Name));
+         Put_Debug ("Generated all interfaces for node " & (+LN.Name));
       end Recurse_Node;
    begin
       Recurse_Node (Node);
 
-      Codegen.Output.Declare_Types_Package (Types_Pkg);
+      Codegen.Client.Objects.Print (Objects_Pkg);
+      Put_Debug ("Generated objects package");
+
+      Codegen.Types.Print (Types_Pkg);
       Put_Debug ("Generated types package");
    end;
 end DBus_Binding_Generator_Ada;

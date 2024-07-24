@@ -1,7 +1,7 @@
 with Ada.Strings.Unbounded;
 
 with Shared; use Shared;
-with Debug; use Debug;
+with Debug;  use Debug;
 
 package body Type_Checking is
    --------------
@@ -82,52 +82,59 @@ package body Type_Checking is
                case T (T'First + 1) is
                   when '(' | '{' =>
                      return Inner (T (T'First + 1 .. T'Last)) + 1;
-                  when others => return 2;
+                  when others =>
+                     return 2;
                end case;
 
-            --  Search for terminating ')'
+               --  Search for terminating ')'
             when '(' =>
                Struct_Depth_Search :
-                  declare
-                     Depth : Natural := 0;
-                  begin
-                     for I in T'Range loop
-                        case T (I) is
-                           when '(' => Depth := Depth + 1;
-                           when ')' => Depth := Depth - 1;
-                           when others => null;
-                        end case;
+               declare
+                  Depth : Natural := 0;
+               begin
+                  for I in T'Range loop
+                     case T (I) is
+                        when '(' =>
+                           Depth := Depth + 1;
+                        when ')' =>
+                           Depth := Depth - 1;
+                        when others =>
+                           null;
+                     end case;
 
-                        --  Return the length of the struct
-                        if Depth = 0 then
-                           return I - T'First + 1;
-                        end if;
-                     end loop;
+                     --  Return the length of the struct
+                     if Depth = 0 then
+                        return I - T'First + 1;
+                     end if;
+                  end loop;
 
-                     raise Program_Error with "Invalid struct";
-                  end Struct_Depth_Search;
+                  raise Program_Error with "Invalid struct";
+               end Struct_Depth_Search;
 
-            --  Idem, but for '}'
+               --  Idem, but for '}'
             when '{' =>
                Dict_Depth_Search :
-                  declare
-                     Depth : Natural := 0;
-                  begin
-                     for I in T'Range loop
-                        case T (I) is
-                           when '{' => Depth := Depth + 1;
-                           when '}' => Depth := Depth - 1;
-                           when others => null;
-                        end case;
+               declare
+                  Depth : Natural := 0;
+               begin
+                  for I in T'Range loop
+                     case T (I) is
+                        when '{' =>
+                           Depth := Depth + 1;
+                        when '}' =>
+                           Depth := Depth - 1;
+                        when others =>
+                           null;
+                     end case;
 
-                        --  Return the length of the dict
-                        if Depth = 0 then
-                           return I - T'First + 1;
-                        end if;
-                     end loop;
-                  end Dict_Depth_Search;
+                     --  Return the length of the dict
+                     if Depth = 0 then
+                        return I - T'First + 1;
+                     end if;
+                  end loop;
+               end Dict_Depth_Search;
 
-                  raise Program_Error with "Invalid dict";
+               raise Program_Error with "Invalid dict";
             when others =>
                raise Program_Error with "Inner called on simple type";
          end case;
@@ -156,11 +163,11 @@ package body Type_Checking is
                   I := I + Container_Length - 1;
                end;
 
-            --  Invalid
+               --  Invalid
             when ')' | '{' | '}' =>
                raise Program_Error with "Invalid signature";
 
-            --  Basic Type / Simple Container Type
+               --  Basic Type / Simple Container Type
             when others =>
                Count := Count + 1;
 

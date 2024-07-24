@@ -7,7 +7,7 @@ with Parsing; use Parsing;
 with Type_Checking; use Type_Checking;
 
 with Shared; use Shared;
-with Debug; use Debug;
+with Debug;  use Debug;
 
 package body Codegen is
    --  Generate Ada type declarations for an argument
@@ -69,10 +69,10 @@ package body Codegen is
                         Struct_Decl.Struct_Members.Append
                           (Ada_Record_Member_Type'
                              (Name      =>
-                                 +("Member_" &
+                                +("Member_" &
                                  I'Image (I'Image'First + 1 .. I'Image'Last)),
                               Type_Code =>
-                                 +Get_Complete_Type (Interior_S, I)));
+                                +Get_Complete_Type (Interior_S, I)));
                      exception
                         when No_More_Complete_Types =>
                            exit;
@@ -180,8 +180,6 @@ package body Codegen is
 
       Pkg : Ada_Package_Type;
    begin
-      Append (Pkg.Name, Codegen.Output.Sanitise_Name (+Node));
-      Append (Pkg.Name, '.');
       Append (Pkg.Name, Codegen.Output.Sanitise_Name (+I.Name));
 
       Pkg.Node  := Node;
@@ -234,17 +232,4 @@ package body Codegen is
 
       return Pkg;
    end Create_Package;
-
-   --  Merge types from `Pkg` into `Types_Pkg`
-   procedure Append_Types
-     (Types_Pkg : in out Ada_Types_Package_Type; Pkg : Ada_Package_Type)
-   is
-   begin
-      for TD of Pkg.Type_Declarations loop
-         if not Types_Pkg.Type_Declarations.Contains (TD.Type_Code) then
-            Types_Pkg.Type_Declarations.Insert (TD.Type_Code, TD);
-         end if;
-      end loop;
-   end Append_Types;
-
 end Codegen;

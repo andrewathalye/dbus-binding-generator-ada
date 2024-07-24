@@ -46,7 +46,6 @@ package Codegen.Output is
    procedure Private_With_Entity (Entity : String);
 
    --  Types
-   procedure Declare_Types_Package (Types_Pkg : Ada_Types_Package_Type);
    procedure Declare_Type (Name : String; Extension : String);
    procedure Declare_Subtype (Name : String; Extension : String);
    procedure Start_Record (Name : String);

@@ -1,8 +1,12 @@
 pragma Ada_2005;
 with Ada.Strings.Unbounded;
+private with Ada.Containers.Indefinite_Hashed_Maps;
+private with Ada.Strings.Hash;
 
 with D_Bus.Arguments;
-with D_Bus.Types;
+private with D_Bus.Types;
+private with D_Bus.Connection;
+private with D_Bus.Messagebox;
 with D_Bus.Messages;
 
 package D_Bus.Support is
@@ -15,55 +19,96 @@ package D_Bus.Support is
    subtype Unbounded_Signature is Ada.Strings.Unbounded.Unbounded_String;
    Null_Unbounded_Signature : constant Unbounded_Signature;
 
-   type Signal_Id is private;
-   Null_Signal_Id : constant Signal_Id;
+   ---------------------------
+   -- Object-Oriented D_Bus --
+   ---------------------------
+   type Root_Interface is interface;
 
-   ----------------
-   -- Properties --
-   ----------------
-   function Get_Property
-     (Destination : String; Node : D_Bus.Types.Obj_Path; Iface : String;
-      Property    : String) return D_Bus.Arguments.Argument_Type'Class;
-   --  See D_Bus specification for details.
-
-   procedure Set_Property
-     (Destination : String; Node : D_Bus.Types.Obj_Path; Iface : String;
-      Property    : String; Value : D_Bus.Arguments.Argument_Type'Class);
-   --  See D_Bus specification for details.
-
-   -------------
-   -- Methods --
-   -------------
-   function Call_Blocking
-     (Destination : String; Path : D_Bus.Types.Obj_Path; Iface : String;
-      Method      : String; Args : D_Bus.Arguments.Argument_List_Type)
-      return D_Bus.Arguments.Argument_List_Type;
-   --  Same as D_Bus.Connection.Call_Blocking but uses internal connection.
-
-   -------------
-   -- Signals --
-   -------------
-   function Register_Signal
-     (Node : D_Bus.Types.Obj_Path;
+   --  OO Signals
+   procedure Register_Signal
+     (O : in out Root_Interface;
       Iface : String;
-      Signal : String) return Signal_Id;
-   --  Register a signal. A signal must be registered before you can use its
-   --  ID to call `Await_Signal`.
+      Name : String) is abstract;
+   --  Register a signal and store the registration data internally.
 
-   procedure Unregister_Signal (Id : out Signal_Id);
-   --  Unregister a signal. The signal must have been registered previously.
+   procedure Unregister_Signal
+    (O : in out Root_Interface;
+     Iface : String;
+     Name : String) is abstract;
+   --  Unregister a signal that was stored internally.
 
-   function Await_Signal (Id : Signal_Id) return D_Bus.Messages.Message_Type;
-   --  Return the message for `Id` when it is received. Extraneous signals
-   --  are stored and can be retrieved analogously.
-   --  TODO not currently thread-safe
+   function Await_Signal
+     (O : Root_Interface;
+      Iface : String;
+      Name : String) return D_Bus.Messages.Message_Type is abstract;
+   --  Return the message for a registered signal with
+   --  interface `Iface` and name `Name`.
+   --  Note: must be a function due to hard user constraint
+
+   --  OO Methods
+   function Call_Blocking
+     (O      : Root_Interface;
+      Iface  : String;
+      Method : String;
+      Args   : D_Bus.Arguments.Argument_List_Type)
+      return D_Bus.Arguments.Argument_List_Type is abstract;
+   --  Same as D_Bus.Connection.Call_Blocking but object-oriented
+
+   ------------------------------
+   -- Base Implementation Type --
+   ------------------------------
+   type Root_Object is new Root_Interface with private;
+
+   --  OO Signals
+   procedure Register_Signal
+     (O : in out Root_Object;
+      Iface : String;
+      Name : String);
+
+   procedure Unregister_Signal
+     (O : in out Root_Object;
+      Iface : String;
+      Name : String);
+
+   function Await_Signal
+     (O : Root_Object;
+      Iface : String;
+      Name : String) return D_Bus.Messages.Message_Type;
+
+   --  OO Methods
+   function Call_Blocking
+     (O      : Root_Object;
+      Iface  : String;
+      Method : String;
+      Args   : D_Bus.Arguments.Argument_List_Type)
+      return D_Bus.Arguments.Argument_List_Type;
+
+   --  Constructor and Destructor
+   procedure Create
+     (O : out Root_Object;
+      Node : Unbounded_Object_Path);
+
+   procedure Set_Destination
+     (O : out Root_Object;
+      Destination : String);
+
+   procedure Destroy (O : in out Root_Object);
 private
-   type Signal_Id is record
-      Registered : Boolean := False;
-      Rule       : Ada.Strings.Unbounded.Unbounded_String;
-      Node       : D_Bus.Types.Obj_Path;
-      Iface      : Ada.Strings.Unbounded.Unbounded_String;
-      Signal     : Ada.Strings.Unbounded.Unbounded_String;
+   subtype Signal_Id is String;
+   subtype Signal_Rule is String;
+
+   package SM is new Ada.Containers.Indefinite_Hashed_Maps
+     (Signal_Id, Signal_Rule, Ada.Strings.Hash, "=", "=");
+
+   type Msg_List_Access is access D_Bus.Messagebox.Msg_List;
+
+   type Root_Object is new Root_Interface with record
+      Valid : Boolean := False;
+      Connection : D_Bus.Connection.Connection_Type;
+      Destination : Ada.Strings.Unbounded.Unbounded_String;
+      Node : D_Bus.Types.Obj_Path;
+      Signals : SM.Map;
+      Messages : Msg_List_Access;
    end record;
 
    Null_Unbounded_Object_Path : constant Unbounded_Object_Path :=
@@ -71,6 +116,4 @@ private
 
    Null_Unbounded_Signature : constant Unbounded_Signature :=
       Ada.Strings.Unbounded.Null_Unbounded_String;
-
-   Null_Signal_Id : constant Signal_Id := (others => <>);
 end D_Bus.Support;

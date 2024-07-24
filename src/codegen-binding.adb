@@ -58,14 +58,15 @@ package body Codegen.Binding is
                Start_Container_For_Loop ("C", Ada_Name);
                   Declare_Code;
                      Declare_Entity
-                       ("Arr_Obj",
+                       ("Arr_Obj_" & (+TD.Name),
                         Get_Library_DBus_Type (+TD.Array_Element_Type_Code));
                   Begin_Code;
                      Bind_To_DBus_Inner
                        (TD =>
                            Pkg.Type_Declarations (TD.Array_Element_Type_Code),
-                        Ada_Name => "C", DBus_Name => "Arr_Obj");
-                     Call (DBus_Name & ".Append (Arr_Obj)");
+                        Ada_Name => "C",
+                        DBus_Name => "Arr_Obj_" & (+TD.Name));
+                     Call (DBus_Name & ".Append (Arr_Obj_" & (+TD.Name) & ")");
                   End_Code;
                End_For_Loop;
 
@@ -105,7 +106,7 @@ package body Codegen.Binding is
                        ("Dict_Key",
                         Get_Library_DBus_Type (+TD.Dict_Key_Type_Code));
                      Declare_Entity
-                       ("Dict_Element",
+                       ("Dict_Element_" & (+TD.Name),
                         Get_Library_DBus_Type (+TD.Dict_Element_Type_Code));
                   Begin_Code;
                      Bind_To_DBus_Inner
@@ -117,11 +118,11 @@ package body Codegen.Binding is
                        (TD =>
                            Pkg.Type_Declarations (TD.Dict_Element_Type_Code),
                         Ada_Name  => "Pkg_" & (+TD.Name) & ".Element (Cursor)",
-                        DBus_Name => "Dict_Element");
+                        DBus_Name => "Dict_Element_" & (+TD.Name));
                      Call
                        (DBus_Name &
                         ".Append (D_Bus.Arguments.Containers.Create" &
-                        " (Dict_Key, Dict_Element))");
+                        " (Dict_Key, Dict_Element_" & (+TD.Name) & "))");
                   End_Code;
                End_For_Loop;
 
@@ -197,7 +198,7 @@ package body Codegen.Binding is
 
                         --  Ada Element
                         Declare_Entity
-                          ("Arr_Obj_Ada",
+                          ("Arr_Obj_Ada_" & (+TD.Name),
                            +Pkg.Type_Declarations
                              (TD.Array_Element_Type_Code).Name);
                      Begin_Code;
@@ -210,8 +211,12 @@ package body Codegen.Binding is
                           (TD =>
                               Pkg.Type_Declarations
                                 (TD.Array_Element_Type_Code),
-                           DBus_Name => "Arr_Obj", Ada_Name => "Arr_Obj_Ada");
-                        Call (Ada_Name & ".Append (Arr_Obj_Ada)");
+                           DBus_Name => "Arr_Obj",
+                           Ada_Name => "Arr_Obj_Ada_" & (+TD.Name));
+                        Call
+                          (Ada_Name &
+                           ".Append (Arr_Obj_Ada_" &
+                           (+TD.Name) & ")");
                      End_Code;
                   End_For_Loop;
                End_Code;
@@ -223,7 +228,7 @@ package body Codegen.Binding is
                for I in 1 .. Positive (TD.Struct_Members.Length) loop
                   Declare_Code;
                      Declare_Entity
-                       ("Element",
+                       ("Element_" & (+TD.Name),
                         +Pkg.Type_Declarations
                           (TD.Struct_Members (I).Type_Code).Name);
                   Begin_Code;
@@ -233,10 +238,10 @@ package body Codegen.Binding is
                             (TD.Struct_Members (I).Type_Code),
                         DBus_Name =>
                            DBus_Name & ".Get_Element (" & I'Image & ")",
-                        Ada_Name  => "Element");
+                        Ada_Name  => "Element_" & (+TD.Name));
                      Assign
                        (Ada_Name & "." & (+TD.Struct_Members (I).Name),
-                        "Element");
+                        "Element_" & (+TD.Name));
                   End_Code;
                end loop;
                --!pp on
@@ -262,7 +267,7 @@ package body Codegen.Binding is
                            +Pkg.Type_Declarations
                              (TD.Dict_Key_Type_Code).Name);
                         Declare_Entity
-                          ("Dict_Element",
+                          ("Dict_Element_" & (+TD.Name),
                            +Pkg.Type_Declarations
                              (TD.Dict_Element_Type_Code).Name);
                      Begin_Code;
@@ -277,8 +282,11 @@ package body Codegen.Binding is
                           (Pkg.Type_Declarations (TD.Dict_Element_Type_Code),
                            Get_Library_DBus_Type (+TD.Dict_Element_Type_Code) &
                            " (" & "Dict_Entry.Get_Value)",
-                           "Dict_Element");
-                        Call (Ada_Name & ".Insert (Dict_Key, Dict_Element)");
+                           "Dict_Element_" & (+TD.Name));
+                        Call
+                          (Ada_Name &
+                           ".Insert (Dict_Key, Dict_Element_" &
+                           (+TD.Name) & ")");
                      End_Code;
                   End_For_Loop;
                End_Code;

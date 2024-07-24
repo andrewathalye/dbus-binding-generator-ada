@@ -7,6 +7,8 @@ with Shared;        use Shared;
 with Type_Checking; use Type_Checking;
 
 package body Codegen.Client.Iface is
+   Properties_Package : constant String := "org_freedesktop_DBus_Properties";
+
    ----------------
    -- Print_Spec --
    ----------------
@@ -35,11 +37,27 @@ package body Codegen.Client.Iface is
       With_Entity ("D_Bus.Generated_Types");
       Use_Entity ("D_Bus.Generated_Types");
       --  <>
+
+      if not Pkg.Properties.Is_Empty then
+         With_Entity (Properties_Package);
+      end if;
+
       New_Line;
 
       --  Package Spec
       --!pp off
       Start_Package (+Pkg.Name);
+         --  The interface type changes if properties are present
+         if Pkg.Properties.Is_Empty then
+            Declare_Type
+              ("Child_Interface",
+               "interface and D_Bus.Support.Root_Interface");
+         else
+            Declare_Type
+              ("Child_Interface",
+               "interface and " & Properties_Package & ".Child_Interface");
+         end if;
+
          if not Pkg.Methods.Is_Empty then
             Large_Comment ("Methods");
             for M of Pkg.Methods loop
@@ -143,6 +161,7 @@ package body Codegen.Client.Iface is
       With_Entity ("D_Bus.Arguments.Basic");
       With_Entity ("D_Bus.Extra");
       With_Entity ("D_Bus.Support");
+      With_Entity ("D_Bus.Messages");
 
       --  Package
       Start_Package_Body (+Pkg.Name);
@@ -161,8 +180,6 @@ package body Codegen.Client.Iface is
                Declare_Entity
                  ("Reply_Args", "D_Bus.Arguments.Argument_List_Type");
             Begin_Code;
-               Call ("Assert_Has_Destination");
-
                --  Bind each in argument
                for A of M.Arguments loop
                   if A.Direction = Parsing.DIn then
@@ -173,8 +190,8 @@ package body Codegen.Client.Iface is
                --  The method call itself
                Assign
                  ("Reply_Args",
-                  "D_Bus.Support.Call_Blocking (Get_Destination, Get_Node," &
-                  " Iface, """ & (+M.Name) & """, Request_Args)");
+                  "O.Call_Blocking (Iface, """ &
+                  (+M.Name) & """, Request_Args)");
 
                --  Bind each out argument
                declare
@@ -202,56 +219,23 @@ package body Codegen.Client.Iface is
             Large_Comment ("Signals");
          end if;
          for S of Pkg.Signals loop
-            Declare_Entity (Signal_Id_Name (S), "D_Bus.Support.Signal_Id");
-
-            --  (Node : String)
             Start_Procedure (Signal_Register_Signature (S));
-               Use_Type ("D_Bus.Support.Signal_Id");
-               Use_Type ("D_Bus.Support.Unbounded_Object_Path");
-               Use_Type ("D_Bus.Types.Obj_Path");
-
-               Declare_Entity ("Target_Node", "D_Bus.Types.Obj_Path");
             Begin_Code;
-               --  Prevent duplicate registration
-               Start_If
-                 (Signal_Id_Name (S) & " /= D_Bus.Support.Null_Signal_Id");
-                  Raise_Exception
-                    ("D_Bus.D_Bus_Error", "Signal already registered.");
-               End_If;
-
-               --  Select node
-               Start_If ("Node = D_Bus.Support.Null_Unbounded_Object_Path");
-                  Assign ("Target_Node", "Get_Node");
-               Start_Else;
-                  Assign
-                    ("Target_Node",
-                     "+Ada.Strings.Unbounded.To_String (Node)");
-               End_If;
-
-               --  Assign the Signal_Id
-               Assign
-                 (Signal_Id_Name (S),
-                  "D_Bus.Support.Register_Signal (Get_Node, Iface," &
-                  " """ & (+S.Name) & """)");
+               Call ("O.Register_Signal (Iface, """ & (+S.Name) & """)");
             End_Procedure (Signal_Register_Name (S));
 
             Start_Procedure (Signal_Unregister_Signature (S));
             Begin_Code;
-               Call
-                 ("D_Bus.Support.Unregister_Signal (" &
-                  Signal_Id_Name (S) & ")");
+               Call ("O.Unregister_Signal (Iface, """ & (+S.Name) & """)");
             End_Procedure (Signal_Unregister_Name (S));
 
             Start_Procedure (Signal_Await_Signature (S));
                Declare_Entity ("Args", "D_Bus.Arguments.Argument_List_Type");
             Begin_Code;
-               Call ("Assert_Has_Destination");
-
                Assign
                  ("Args",
-                  "D_Bus.Messages.Get_Arguments" &
-                  " (D_Bus.Support.Await_Signal (" &
-                  Signal_Id_Name (S) & "))");
+                  "D_Bus.Messages.Get_Arguments (O.Await_Signal (Iface, """ &
+                  (+S.Name) & """))");
 
                --  Bind arguments
                declare
@@ -285,16 +269,22 @@ package body Codegen.Client.Iface is
                     Get_Library_DBus_Type (+P.Type_Code);
                begin
                   Start_Function (Property_Read_Signature (P));
+                     Use_Entity ("Ada.Strings.Unbounded");
+                     Declare_Entity
+                       ("Variant", "D_Bus.Arguments.Containers.Variant_Type");
                      Declare_Entity ("Property", DBus_Type);
                      Declare_Entity ("Property_Ada", Ada_Type);
                   Begin_Code;
-                     Call ("Assert_Has_Destination");
+                     --  Get the property via a direct D_Bus call
+                     Call
+                       (Properties_Package & ".Child_Interface'Class (O)" &
+                        ".Get (To_Unbounded_String (Iface)," &
+                        " To_Unbounded_String (""" & (+P.Name) & """)," &
+                        " Variant)");
 
                      Assign
-                       ("Property",
-                        DBus_Type & " (D_Bus.Support.Get_Property" &
-                        " (Get_Destination, Get_Node, Iface, """ &
-                        (+P.Name) & """))");
+                       ("Property", DBus_Type & " (Variant.Get_Argument)");
+
                      Codegen.Binding.Bind_To_Ada
                        (Pkg => Pkg,
                         TD => Pkg.Type_Declarations (P.Type_Code),
@@ -308,19 +298,27 @@ package body Codegen.Client.Iface is
             --  Setter
             if P.PAccess in Parsing.Write | Parsing.Readwrite then
                Start_Procedure (Property_Write_Signature (P));
+                  Use_Entity ("Ada.Strings.Unbounded");
                   Declare_Entity
                     ("Property", Get_Library_DBus_Type (+P.Type_Code));
+                  Declare_Entity
+                    ("Variant", "D_Bus.Arguments.Containers.Variant_Type");
                Begin_Code;
-                  Call ("Assert_Has_Destination");
-
                   Codegen.Binding.Bind_To_DBus
                     (Pkg => Pkg,
                      TD => Pkg.Type_Declarations (P.Type_Code),
                      Ada_Name => "Value",
                      DBus_Name => "Property");
+
+                  Assign
+                    ("Variant",
+                     "D_Bus.Arguments.Containers.Create (Property)");
+
+                  --  Set the property (direct D_Bus call)
                   Call
-                    ("D_Bus.Support.Set_Property (Get_Destination, Get_Node," &
-                     " Iface, """ & (+P.Name) & """, Property)");
+                    (Properties_Package & ".Child_Interface'Class (O)" &
+                     ".Set (To_Unbounded_String (Iface), To_Unbounded_String" &
+                     " (""" & (+P.Name) & """), Variant)");
                End_Procedure (Property_Write_Name (P));
             end if;
          end loop;

@@ -8,16 +8,13 @@ package Codegen.Output.Client is
    -------------
    -- Signals --
    -------------
-   function Signal_Id_Name (S : Parsing.Signal_Type) return String;
    function Signal_Register_Name (S : Parsing.Signal_Type) return String;
-   function Signal_Register_Signature
-     (S : Parsing.Signal_Type) return String;
+   function Signal_Register_Signature (S : Parsing.Signal_Type) return String;
    function Signal_Unregister_Name (S : Parsing.Signal_Type) return String;
    function Signal_Unregister_Signature
      (S : Parsing.Signal_Type) return String;
    function Signal_Await_Name (S : Parsing.Signal_Type) return String;
-   function Signal_Await_Signature
-     (S : Parsing.Signal_Type) return String;
+   function Signal_Await_Signature (S : Parsing.Signal_Type) return String;
 
    ----------------
    -- Properties --

@@ -14,11 +14,12 @@ package body Codegen.Output.Client is
    ----------------------
    -- Method_Signature --
    ----------------------
-
    function Method_Signature (M : Parsing.Method_Type) return String is
+      Args : constant String := Get_Arguments (M.Arguments, Client => True);
    begin
       return
-        Method_Name (M) & " " & Get_Arguments (M.Arguments, Client => True);
+        Method_Name (M) & " (O : Child_Interface'Class" &
+        (if Args'Length > 0 then "; " & Args else "") & ")";
    end Method_Signature;
 
    -----------------
@@ -29,11 +30,6 @@ package body Codegen.Output.Client is
    begin
       return Sanitise_Name (+S.Name);
    end Signal_Name;
-
-   function Signal_Id_Name (S : Parsing.Signal_Type) return String is
-   begin
-      return "Id_" & Signal_Name (S);
-   end Signal_Id_Name;
 
    --------------------------
    -- Signal_Register_Name --
@@ -47,10 +43,8 @@ package body Codegen.Output.Client is
    -- Signal_Register_Signature --
    -------------------------------
    function Signal_Register_Signature
-     (S : Parsing.Signal_Type) return String
-   is (Signal_Register_Name (S) &
-       "(Node : D_Bus.Support.Unbounded_Object_Path :=" &
-        " D_Bus.Support.Null_Unbounded_Object_Path)");
+     (S : Parsing.Signal_Type) return String is
+     (Signal_Register_Name (S) & "(O : in out Child_Interface'Class)");
 
    ----------------------------
    -- Signal_Unregister_Name --
@@ -64,8 +58,8 @@ package body Codegen.Output.Client is
    -- Signal_Unregister_Signature --
    ---------------------------------
    function Signal_Unregister_Signature
-     (S : Parsing.Signal_Type) return String
-   is (Signal_Unregister_Name (S));
+     (S : Parsing.Signal_Type) return String is
+     (Signal_Unregister_Name (S) & " (O : in out Child_Interface'Class)");
 
    -----------------------
    -- Signal_Await_Name --
@@ -79,10 +73,11 @@ package body Codegen.Output.Client is
    -- Signal_Await_Signature --
    ----------------------------
    function Signal_Await_Signature (S : Parsing.Signal_Type) return String is
+      Args : constant String := Get_Arguments (S.Arguments, Client => True);
    begin
       return
-        Signal_Await_Name (S) & " " &
-        Get_Arguments (S.Arguments, Client => True);
+        Signal_Await_Name (S) & " (O : Child_Interface'Class" &
+        (if Args'Length > 0 then "; " & Args else "") & ")";
    end Signal_Await_Signature;
 
    ------------------------
@@ -102,7 +97,7 @@ package body Codegen.Output.Client is
    is
    begin
       return
-        Property_Read_Name (P) & " return " &
+        Property_Read_Name (P) & " (O : Child_Interface'Class) return " &
         Type_Checking.Get_Ada_Type (+P.Type_Code);
    end Property_Read_Signature;
 
@@ -123,7 +118,7 @@ package body Codegen.Output.Client is
    is
    begin
       return
-        Property_Write_Name (P) & " (Value : " &
+        Property_Write_Name (P) & " (O : Child_Interface'Class; Value : " &
         Type_Checking.Get_Ada_Type (+P.Type_Code) & ")";
    end Property_Write_Signature;
 end Codegen.Output.Client;
