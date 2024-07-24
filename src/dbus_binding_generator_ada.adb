@@ -99,7 +99,8 @@ begin
          begin
             Mode := Client_Server'Value (Ada.Command_Line.Argument (2));
          exception
-            when Constraint_Error => Show_Help;
+            when Constraint_Error =>
+               Show_Help;
          end;
       when others =>
          Show_Help;
@@ -180,7 +181,7 @@ begin
       procedure Recurse_Node (LN : in out Parsing.Node_Type) is
       begin
          case Mode is
-            when Client =>
+            when Client => null;
                Codegen.Client.Node.Print_Spec (LN);
                Codegen.Client.Node.Print_Body (LN);
             when Server =>
@@ -200,7 +201,7 @@ begin
                Codegen.Append_Types (Types_Pkg, Pkg);
 
                case Mode is
-                  when Client =>
+                  when Client => null;
                      Codegen.Client.Iface.Print_Spec (Pkg);
                      Codegen.Client.Iface.Print_Body (Pkg);
                   when Server =>

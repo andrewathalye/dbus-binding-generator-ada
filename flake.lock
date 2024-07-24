@@ -5,16 +5,16 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1720853565,
-        "narHash": "sha256-RMvqr4H7j86Vnj6/9IDZQw0arhxnCVcetjjigq9OwhY=",
+        "lastModified": 1721769241,
+        "narHash": "sha256-rspTts1fMtOSe2v0nOL775LE2trL+cXuY/1GFZVYmQw=",
         "owner": "andrewathalye",
         "repo": "nix-ada",
-        "rev": "c5686c516d53173bd91ee6d86fa29b3929eb7766",
+        "rev": "fefa0f486050a16da20b012545a874aa75881d8d",
         "type": "github"
       },
       "original": {
         "owner": "andrewathalye",
-        "ref": "v1.4",
+        "ref": "v1.4.1",
         "repo": "nix-ada",
         "type": "github"
       }

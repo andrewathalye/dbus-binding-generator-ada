@@ -10,12 +10,15 @@ package body Codegen.Client.Node is
    begin
       --!pp off
       Use_Pragma ("Ada_2005");
+      Use_Pragma ("Warnings (Off, ""not referenced"")");
+      New_Line;
+
       Private_With_Entity ("D_Bus.Arguments");
       Private_With_Entity ("D_Bus.Messages");
       Private_With_Entity ("D_Bus.Types");
       New_Line;
 
-      Start_Package (Package_Name (+N.Name));
+      Start_Package (Sanitise_Name (+N.Name));
       if N.Interfaces.Length > 0 then
          Large_Comment ("Builtin");
          Declare_Entity ("No_Destination", "exception");
@@ -28,17 +31,17 @@ package body Codegen.Client.Node is
             Declare_Function ("Get_Destination return String");
             Declare_Procedure ("Assert_Has_Destination");
       end if;
-      End_Package (Package_Name (+N.Name));
+      End_Package (Sanitise_Name (+N.Name));
       --!pp on
    end Print_Spec;
 
    ----------------
    -- Print_Body --
    ----------------
-   procedure Print_Body (N : Parsing.Node_Type)
-   is
+   procedure Print_Body (N : Parsing.Node_Type) is
    begin
       --!pp off
+      Use_Pragma ("Style_Checks (Off)");
       --------------
       -- Includes --
       --------------
@@ -48,7 +51,7 @@ package body Codegen.Client.Node is
       With_Entity ("D_Bus.Types");
       Use_Type ("D_Bus.Types.Obj_Path");
 
-      Start_Package_Body (Package_Name (+N.Name));
+      Start_Package_Body (Sanitise_Name (+N.Name));
          if N.Interfaces.Length > 0 then
             ----------
             -- Node --
@@ -88,7 +91,7 @@ package body Codegen.Client.Node is
                End_If;
             End_Procedure ("Assert_Has_Destination");
          end if;
-      End_Package (Package_Name (+N.Name));
+      End_Package (Sanitise_Name (+N.Name));
       --!pp on
    end Print_Body;
 end Codegen.Client.Node;

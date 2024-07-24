@@ -55,14 +55,13 @@ package Parsing is
    type Node_Type;
    type Node_Access is access Node_Type;
 
-   package Node_Lists is new Ada.Containers.Vectors
-     (Positive, Node_Access);
+   package Node_Lists is new Ada.Containers.Vectors (Positive, Node_Access);
    subtype Node_List is Node_Lists.Vector;
 
    type Node_Type is record
-      Name       : Ada.Strings.Unbounded.Unbounded_String;
+      Name        : Ada.Strings.Unbounded.Unbounded_String;
       Child_Nodes : Node_List;
-      Interfaces : Interface_List;
+      Interfaces  : Interface_List;
    end record;
 
    procedure Free is new Ada.Unchecked_Deallocation (Node_Type, Node_Access);

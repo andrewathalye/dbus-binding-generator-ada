@@ -1,5 +1,5 @@
 <!-- GDBus 2.80.2 -->
-<node>
+<node name="/org/freedesktop/portal/desktop">
   <interface name="org.freedesktop.DBus.Properties">
     <method name="Get">
       <arg type="s" name="interface_name" direction="in"/>

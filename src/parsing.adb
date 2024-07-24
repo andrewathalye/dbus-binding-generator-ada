@@ -97,7 +97,7 @@ package body Parsing is
    function Process_Node (Node : DOM.Core.Node) return Node_Type is
       Node_Name : Ada.Strings.Unbounded.Unbounded_String;
 
-      Children : DOM.Core.Node_List;
+      Children       : DOM.Core.Node_List;
       Nodes_Ada      : Node_List;
       Interfaces_Ada : Interface_List;
    begin

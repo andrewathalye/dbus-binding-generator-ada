@@ -1,6 +1,7 @@
 with Ada.Strings.Unbounded;
 
 with Shared; use Shared;
+with Debug; use Debug;
 
 package body Type_Checking is
    --------------
@@ -68,45 +69,112 @@ package body Type_Checking is
 
       Buf   : Unbounded_String;
       Count : Natural := 0;
-   begin
-      Main_Loop :
-      for I in T'Range loop
-         case T (I) is
-            --  Complex types
+
+      --  Return the full length of a complete inner type
+      --  (as) -> 4
+      --  a{tvs} => 6
+      function Inner (T : String) return Positive;
+      function Inner (T : String) return Positive is
+      begin
+         case T (T'First) is
+            --  Recursive array handler
             when 'a' =>
-               case T (I + 1) is
-                  when '{' => --  Return the full a{...}
-                     Find_Dict :
-                     for I2 in I .. T'Last loop
-                        if T (I2) = '}' then
-                           Buf := +(T (I .. I2));
-                           exit Find_Dict;
-                        end if;
-                     end loop Find_Dict;
-                  when others => -- Return a...
-                     Buf := Null_Unbounded_String;
-                     Append (Buf, 'a');
-                     Append (Buf, Get_Complete_Type (T (I + 1 .. T'Last)));
+               case T (T'First + 1) is
+                  when '(' | '{' =>
+                     return Inner (T (T'First + 1 .. T'Last)) + 1;
+                  when others => return 2;
                end case;
-            when '(' => --  Return the full (...)
-               Find_Struct :
-               for I2 in I .. T'Last loop
-                  if T (I2) = ')' then
-                     Buf := +(T (I .. I2));
-                     exit Find_Struct;
-                  end if;
-               end loop Find_Struct;
+
+            --  Search for terminating ')'
+            when '(' =>
+               Struct_Depth_Search :
+                  declare
+                     Depth : Natural := 0;
+                  begin
+                     for I in T'Range loop
+                        case T (I) is
+                           when '(' => Depth := Depth + 1;
+                           when ')' => Depth := Depth - 1;
+                           when others => null;
+                        end case;
+
+                        --  Return the length of the struct
+                        if Depth = 0 then
+                           return I - T'First + 1;
+                        end if;
+                     end loop;
+
+                     raise Program_Error with "Invalid struct";
+                  end Struct_Depth_Search;
+
+            --  Idem, but for '}'
+            when '{' =>
+               Dict_Depth_Search :
+                  declare
+                     Depth : Natural := 0;
+                  begin
+                     for I in T'Range loop
+                        case T (I) is
+                           when '{' => Depth := Depth + 1;
+                           when '}' => Depth := Depth - 1;
+                           when others => null;
+                        end case;
+
+                        --  Return the length of the dict
+                        if Depth = 0 then
+                           return I - T'First + 1;
+                        end if;
+                     end loop;
+                  end Dict_Depth_Search;
+
+                  raise Program_Error with "Invalid dict";
             when others =>
-               Buf := Null_Unbounded_String;
-               Append (Buf, T (I));
+               raise Program_Error with "Inner called on simple type";
+         end case;
+      end Inner;
+
+      I : Natural := T'First;
+   begin
+      Put_Debug ("Get_Complete_Type: " & T & "," & Index'Image);
+
+      while I <= T'Last loop
+         case T (I) is
+            --  Complex Container
+            when 'a' | '(' =>
+               declare
+                  Container_Length : constant Positive :=
+                    Inner (T (I .. T'Last));
+               begin
+                  Count := Count + 1;
+
+                  if Count = Index then
+                     Append (Buf, T (I .. I + Container_Length - 1));
+                     Put_Debug ("Complete_Type: " & (+Buf));
+                     return +Buf;
+                  end if;
+
+                  I := I + Container_Length - 1;
+               end;
+
+            --  Invalid
+            when ')' | '{' | '}' =>
+               raise Program_Error with "Invalid signature";
+
+            --  Basic Type / Simple Container Type
+            when others =>
+               Count := Count + 1;
+
+               if Count = Index then
+                  Put_Debug ("Complete_Type: " & T (I));
+                  return (1 => T (I));
+               end if;
          end case;
 
-         Count := Count + 1;
-         if Count = Index then
-            return +Buf;
-         end if;
-      end loop Main_Loop;
-      return raise No_More_Complete_Types with T & Index'Image;
+         I := I + 1;
+      end loop;
+
+      --  Failed to find the Index'th complete type
+      raise No_More_Complete_Types;
    end Get_Complete_Type;
 
    ------------------

@@ -68,6 +68,13 @@ package body Codegen.Binding is
                      Call (DBus_Name & ".Append (Arr_Obj)");
                   End_Code;
                End_For_Loop;
+
+               --  Handle the case of an empty array
+               Start_If (DBus_Name & ".Is_Empty");
+                  Call
+                    (DBus_Name & ".Set_Signature (""" &
+                     (+TD.Array_Element_Type_Code) & """)");
+               End_If;
                --!pp on
 
                --  for_struct M of Ada_Name => D_Bus_Name.Append (Bind (M))
@@ -117,6 +124,15 @@ package body Codegen.Binding is
                         " (Dict_Key, Dict_Element))");
                   End_Code;
                End_For_Loop;
+
+               --  Handle the case of an empty dict
+               Start_If (DBus_Name & ".Is_Empty");
+                  Call
+                    (DBus_Name & ".Set_Signature (""{" &
+                     (+TD.Dict_Key_Type_Code) &
+                     (+TD.Dict_Element_Type_Code) & "}"")");
+               End_If;
+
                --!pp on
             when Variant_Kind =>
                Assign (DBus_Name, Ada_Name);

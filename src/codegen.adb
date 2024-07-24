@@ -1,3 +1,5 @@
+pragma Ada_2022;
+
 with Codegen.Output;
 
 with Parsing; use Parsing;
@@ -5,6 +7,7 @@ with Parsing; use Parsing;
 with Type_Checking; use Type_Checking;
 
 with Shared; use Shared;
+with Debug; use Debug;
 
 package body Codegen is
    --  Generate Ada type declarations for an argument
@@ -51,31 +54,25 @@ package body Codegen is
                   Struct_Decl.Name      := Ada_Type_Name;
                   Struct_Decl.Type_Code := Type_Code;
 
-                  --  Ensure all types are declared
+                  --  Declare and add types
                   I := 1;
                   loop
+                     declare
+                        Type_Code : Ada.Strings.Unbounded.Unbounded_String;
                      begin
-                        Generate_Ada_Types
-                          (Map, +Get_Complete_Type (Interior_S, I));
-                     exception
-                        when No_More_Complete_Types =>
-                           exit;
-                     end;
+                        Type_Code := +Get_Complete_Type (Interior_S, I);
 
-                     I := I + 1;
-                  end loop;
+                        --  Generate types recursively
+                        Generate_Ada_Types (Map, Type_Code);
 
-                  --  Declare the record itself
-                  I := 1;
-                  loop
-                     begin
+                        --  Add the struct declaration
                         Struct_Decl.Struct_Members.Append
                           (Ada_Record_Member_Type'
                              (Name      =>
-                                +("Member_" &
+                                 +("Member_" &
                                  I'Image (I'Image'First + 1 .. I'Image'Last)),
                               Type_Code =>
-                                +Get_Complete_Type (Interior_S, I)));
+                                 +Get_Complete_Type (Interior_S, I)));
                      exception
                         when No_More_Complete_Types =>
                            exit;
@@ -161,8 +158,8 @@ package body Codegen is
       LI : constant Natural  := M.Arguments.Last_Index;
    begin
       for I in FI .. LI loop
-         M.Arguments (I).Name := +Codegen.Output.Sanitise_Name
-           (+M.Arguments (I).Name);
+         M.Arguments (I).Name :=
+           +Codegen.Output.Sanitise_Name (+M.Arguments (I).Name);
 
          --  Give a unique name to unnamed parameters
          if M.Arguments (I).Name = Null_Unbounded_String then
@@ -183,9 +180,9 @@ package body Codegen is
 
       Pkg : Ada_Package_Type;
    begin
-      Append (Pkg.Name, Codegen.Output.Package_Name (+Node));
+      Append (Pkg.Name, Codegen.Output.Sanitise_Name (+Node));
       Append (Pkg.Name, '.');
-      Append (Pkg.Name, Codegen.Output.Package_Name (+I.Name));
+      Append (Pkg.Name, Codegen.Output.Sanitise_Name (+I.Name));
 
       Pkg.Node  := Node;
       Pkg.Iface := I.Name;
@@ -195,17 +192,20 @@ package body Codegen is
       -----------
       for M of I.Methods loop
          for A of M.Arguments loop
+            Put_Debug ("Generate Type: " & (+A.Type_Code));
             Generate_Ada_Types (Pkg.Type_Declarations, A.Type_Code);
          end loop;
       end loop;
 
       for S of I.Signals loop
          for A of S.Arguments loop
+            Put_Debug ("Generate Type: " & (+A.Type_Code));
             Generate_Ada_Types (Pkg.Type_Declarations, A.Type_Code);
          end loop;
       end loop;
 
       for P of I.Properties loop
+         Put_Debug ("Generate Type: " & (+P.Type_Code));
          Generate_Ada_Types (Pkg.Type_Declarations, P.Type_Code);
       end loop;
 
@@ -237,8 +237,7 @@ package body Codegen is
 
    --  Merge types from `Pkg` into `Types_Pkg`
    procedure Append_Types
-    (Types_Pkg : in out Ada_Types_Package_Type;
-     Pkg : Ada_Package_Type)
+     (Types_Pkg : in out Ada_Types_Package_Type; Pkg : Ada_Package_Type)
    is
    begin
       for TD of Pkg.Type_Declarations loop

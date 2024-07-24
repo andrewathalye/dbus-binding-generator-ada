@@ -28,8 +28,7 @@ package Codegen is
    --  Return an Ada Package object based on the DBus interface
 
    procedure Append_Types
-    (Types_Pkg : in out Ada_Types_Package_Type;
-     Pkg : Ada_Package_Type);
+     (Types_Pkg : in out Ada_Types_Package_Type; Pkg : Ada_Package_Type);
    --  Add any types only in `Pkg` to `Types_Pkg`
    --  You may then call `Codegen.Output.Print_Types_Package (...)`
 private

@@ -1,10 +1,9 @@
-with Codegen.Output.Client;
-use Codegen.Output.Client;
+with Codegen.Output.Client; use Codegen.Output.Client;
 use Codegen.Output;
 
 with Codegen.Binding; use Codegen.Binding;
 
-with Shared; use Shared;
+with Shared;        use Shared;
 with Type_Checking; use Type_Checking;
 
 package body Codegen.Client.Iface is
@@ -15,6 +14,8 @@ package body Codegen.Client.Iface is
    begin
       --  Preamble
       Use_Pragma ("Ada_2005");
+      Use_Pragma ("Warnings (Off, ""-gnatwu"")");
+      New_Line;
 
       With_Entity ("Ada.Strings.Unbounded");
       With_Entity ("Interfaces");
@@ -50,7 +51,9 @@ package body Codegen.Client.Iface is
          if not Pkg.Signals.Is_Empty then
             Large_Comment ("Signals");
             for S of Pkg.Signals loop
-               Declare_Procedure (Signal_Signature (S));
+               Declare_Procedure (Signal_Register_Signature (S));
+               Declare_Procedure (Signal_Unregister_Signature (S));
+               Declare_Procedure (Signal_Await_Signature (S));
                New_Line;
             end loop;
          end if;
@@ -131,6 +134,11 @@ package body Codegen.Client.Iface is
    begin
       --!pp off
       --  Preamble
+      Use_Pragma ("Style_Checks (Off)");
+      Use_Pragma ("Warnings (Off, ""-gnatwu"")");
+      Use_Pragma ("Warnings (Off, ""-gnatwr"")");
+      Use_Pragma ("Warnings (Off, ""-gnatwm"")");
+
       With_Entity ("D_Bus.Types");
       With_Entity ("D_Bus.Arguments.Basic");
       With_Entity ("D_Bus.Extra");
@@ -194,7 +202,47 @@ package body Codegen.Client.Iface is
             Large_Comment ("Signals");
          end if;
          for S of Pkg.Signals loop
-            Start_Procedure (Signal_Signature (S));
+            Declare_Entity (Signal_Id_Name (S), "D_Bus.Support.Signal_Id");
+
+            --  (Node : String)
+            Start_Procedure (Signal_Register_Signature (S));
+               Use_Type ("D_Bus.Support.Signal_Id");
+               Use_Type ("D_Bus.Support.Unbounded_Object_Path");
+               Use_Type ("D_Bus.Types.Obj_Path");
+
+               Declare_Entity ("Target_Node", "D_Bus.Types.Obj_Path");
+            Begin_Code;
+               --  Prevent duplicate registration
+               Start_If
+                 (Signal_Id_Name (S) & " /= D_Bus.Support.Null_Signal_Id");
+                  Raise_Exception
+                    ("D_Bus.D_Bus_Error", "Signal already registered.");
+               End_If;
+
+               --  Select node
+               Start_If ("Node = D_Bus.Support.Null_Unbounded_Object_Path");
+                  Assign ("Target_Node", "Get_Node");
+               Start_Else;
+                  Assign
+                    ("Target_Node",
+                     "+Ada.Strings.Unbounded.To_String (Node)");
+               End_If;
+
+               --  Assign the Signal_Id
+               Assign
+                 (Signal_Id_Name (S),
+                  "D_Bus.Support.Register_Signal (Get_Node, Iface," &
+                  " """ & (+S.Name) & """)");
+            End_Procedure (Signal_Register_Name (S));
+
+            Start_Procedure (Signal_Unregister_Signature (S));
+            Begin_Code;
+               Call
+                 ("D_Bus.Support.Unregister_Signal (" &
+                  Signal_Id_Name (S) & ")");
+            End_Procedure (Signal_Unregister_Name (S));
+
+            Start_Procedure (Signal_Await_Signature (S));
                Declare_Entity ("Args", "D_Bus.Arguments.Argument_List_Type");
             Begin_Code;
                Call ("Assert_Has_Destination");
@@ -202,8 +250,8 @@ package body Codegen.Client.Iface is
                Assign
                  ("Args",
                   "D_Bus.Messages.Get_Arguments" &
-                  " (D_Bus.Support.Await_Signal (Get_Node, Iface," &
-                  " """ & (+S.Name) & """))");
+                  " (D_Bus.Support.Await_Signal (" &
+                  Signal_Id_Name (S) & "))");
 
                --  Bind arguments
                declare
@@ -220,7 +268,7 @@ package body Codegen.Client.Iface is
                      Index := Index + 1;
                   end loop;
                end;
-            End_Procedure (Signal_Name (S));
+            End_Procedure (Signal_Await_Name (S));
          end loop;
 
          --  Properties

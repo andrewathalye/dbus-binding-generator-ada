@@ -2,9 +2,18 @@
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
    <xs:simpleType name="member_name">
       <xs:restriction base="xs:string">
-         <!-- Name format: al (alnum_)* -->
-         <!-- Per the DBus Specification -->
-         <xs:pattern value="^[a-zA-Z]([a-zA-Z0-9_])*$"/>
+         <!-- Name format: (alnum_)* -->
+         <!-- Per DBus Specification -->
+         <xs:pattern value="^([a-zA-Z0-9_])*$"/>
+         <xs:maxLength value="255"/>
+      </xs:restriction>
+   </xs:simpleType>
+
+   <xs:simpleType name="property_name">
+      <xs:restriction base="xs:string">
+         <!-- Name format: (alnum_-)* -->
+         <!-- Stricter than the DBus Specification -->
+         <xs:pattern value="^([a-zA-Z0-9_\-])*$"/>
          <xs:maxLength value="255"/>
       </xs:restriction>
    </xs:simpleType>
@@ -96,7 +105,7 @@
          <xs:element name="annotation" type="annotation"/>
       </xs:choice>
 
-      <xs:attribute name="name" type="member_name" use="required"/>
+      <xs:attribute name="name" type="property_name" use="required"/>
       <xs:attribute name="type" type="signature" use="required"/>
       <xs:attribute name="access" use="required">
          <xs:simpleType>

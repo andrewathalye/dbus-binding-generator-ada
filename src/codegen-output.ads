@@ -64,15 +64,10 @@ package Codegen.Output is
 
    --  Sanitising
    function Sanitise_Name (Name : String) return String;
-   --  Note
-   --  Sanitise a name so that it no longer contains reserved words
-   --  or references to entities required by the binding generator.
-   --
-   --  This should be called on any external name
-   function Package_Name (Name : String) return String;
-   --  Returns a sanitised package name for `Name`
-   --  More specifically, replaces all instances of '/' with
-   --  '_' and renames reserved words.
+   pragma Pure_Function (Sanitise_Name);
+   --  Sanitise a name so that it is legal for use as an Ada identifier.
+   --  The actual result of this process is opaque, but a consistent result
+   --  will be produced for any given `Name`.
 
 private
    function Get_Arguments

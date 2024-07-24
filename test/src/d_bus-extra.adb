@@ -5,6 +5,7 @@ with dbus_signature_h;
 with Interfaces.C.Strings;
 
 package body D_Bus.Extra is
+   procedure Assert_Success (DB : dbus_types_h.dbus_bool_t);
    procedure Assert_Success (DB : dbus_types_h.dbus_bool_t) is
       use type dbus_types_h.dbus_bool_t;
    begin
