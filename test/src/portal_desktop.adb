@@ -1,6 +1,6 @@
 pragma Ada_2022;
 
-with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Text_IO;           use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
 with Interfaces;
@@ -16,13 +16,15 @@ with D_Bus.Arguments.Containers;
 
 procedure Portal_Desktop is
    --  org.freedesktop.portal.FileChooser
-   type OFDP_FileChooser is new D_Bus.Support.Root_Object
-      and org_freedesktop_portal_FileChooser.Child_Interface
-      and org_freedesktop_portal_Print.Child_Interface with null record;
+   type OFDP_FileChooser is
+   new D_Bus.Support.Root_Object and
+     org_freedesktop_portal_FileChooser.Child_Interface and
+     org_freedesktop_portal_Print.Child_Interface with null record;
 
    --  org.freedesktop.portal.Request
-   type OFDP_Request is new D_Bus.Support.Root_Object
-      and org_freedesktop_portal_Request.Child_Interface with null record;
+   type OFDP_Request is
+   new D_Bus.Support.Root_Object and
+     org_freedesktop_portal_Request.Child_Interface with null record;
 
    --  /org/freedesktop/portal/desktop
    Desktop : OFDP_FileChooser;
@@ -38,13 +40,12 @@ begin
       OpenFile_Object : OFDP_Request;
 
       Response : Interfaces.Unsigned_32;
-      Results : Dict_sv;
+      Results  : Dict_sv;
    begin
       Desktop.OpenFile
         (parent_window => Null_Unbounded_String,
-         title => To_Unbounded_String ("Sample select dialogue"),
-         options => [],
-         handle => OpenFile_Handle);
+         title         => To_Unbounded_String ("Sample select dialogue"),
+         options       => [], handle => OpenFile_Handle);
 
       Put_Line (To_String (OpenFile_Handle));
       Put_Line ("@Request");
@@ -64,22 +65,20 @@ begin
    Put_Line ("Print");
    --  Print
    declare
-      File : GNAT.OS_Lib.File_Descriptor;
+      File         : GNAT.OS_Lib.File_Descriptor;
       Print_Handle : Unbounded_Object_Path;
       Print_Object : OFDP_Request;
 
       Response : Interfaces.Unsigned_32;
-      Results : Dict_sv;
+      Results  : Dict_sv;
    begin
-      File := GNAT.OS_Lib.Open_Read
-        ("src/portal_desktop.adb", GNAT.OS_Lib.Text);
+      File :=
+        GNAT.OS_Lib.Open_Read ("src/portal_desktop.adb", GNAT.OS_Lib.Text);
 
       Desktop.Print
         (parent_window => Null_Unbounded_String,
-         title => To_Unbounded_String ("Sample print dialogue"),
-         fd => File,
-         options => [],
-         handle => Print_Handle);
+         title => To_Unbounded_String ("Sample print dialogue"), fd => File,
+         options       => [], handle => Print_Handle);
 
       GNAT.OS_Lib.Close (File);
 

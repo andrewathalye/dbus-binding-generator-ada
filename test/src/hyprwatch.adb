@@ -7,10 +7,11 @@ with tk_zenithseeker_hyprwatch;
 with D_Bus.Support; use D_Bus.Support;
 
 procedure Hyprwatch is
-   type TZ_Hyprwatch is new Root_Object
-      and tk_zenithseeker_hyprwatch.Child_Interface with null record;
+   type TZ_Hyprwatch is
+   new Root_Object and tk_zenithseeker_hyprwatch.Child_Interface with
+   null record;
 
-   TZH : TZ_Hyprwatch;
+   TZH  : TZ_Hyprwatch;
    json : Unbounded_String;
 begin
    TZH.Create (To_Unbounded_String ("/tk/zenithseeker/hyprwatch"));

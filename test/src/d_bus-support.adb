@@ -11,6 +11,8 @@ with D_Bus.Messagebox;
 
 with dbus_connection_h;
 with dbus_message_h;
+with dbus_errors_h;
+with dbus_bus_h;
 with dbus_shared_h;
 with dbus_types_h;
 
@@ -18,19 +20,45 @@ package body D_Bus.Support is
    ---------------
    -- Internals --
    ---------------
-   Connection : constant D_Bus.Connection.Connection_Type :=
-      D_Bus.Connection.Connect;
-   Messages : D_Bus.Messagebox.Msg_List;
+   --  Shared State (Needs Locking)
+   Connection : D_Bus.Connection.Connection_Type;
+   Messages   : D_Bus.Messagebox.Msg_List;
 
+   --  Lock
+   protected type Lock is
+      entry Acquire;
+      entry Release;
+   private
+      Locked : Boolean := False;
+   end Lock;
+
+   protected body Lock is
+      entry Acquire when not Locked is
+      begin
+         Locked := True;
+      end Acquire;
+
+      entry Release when Locked is
+      begin
+         Locked := False;
+      end Release;
+   end Lock;
+
+   D_Bus_Lock : Lock;
+
+   --  Datatype Conversions
    type Connection_Overlay is record
       Thin_Connection : access dbus_connection_h.DBusConnection;
    end record;
 
    function Convert is new Ada.Unchecked_Conversion
      (D_Bus.Connection.Connection_Type, Connection_Overlay);
+   function Convert is new Ada.Unchecked_Conversion
+     (Connection_Overlay, D_Bus.Connection.Connection_Type);
 
+   --  Callback Implementation
    type Signal_Data_Pack is record
-      Ran   : Boolean := False;
+      Ran : Boolean := False;
       Msg : D_Bus.Messages.Message_Type;
    end record;
 
@@ -38,22 +66,21 @@ package body D_Bus.Support is
      (Signal_Data_Pack);
 
    function Call_Back
-     (D_Conn   : access dbus_connection_h.DBusConnection;
-      Msg      : access dbus_message_h.DBusMessage;
-      Usr_Data : System.Address) return dbus_shared_h.DBusHandlerResult;
+     (D_Conn : access dbus_connection_h.DBusConnection;
+      Msg    : access dbus_message_h.DBusMessage; Usr_Data : System.Address)
+      return dbus_shared_h.DBusHandlerResult;
    pragma Convention (C, Call_Back);
 
    function Call_Back
-     (D_Conn   : access dbus_connection_h.DBusConnection;
-      Msg      : access dbus_message_h.DBusMessage;
-      Usr_Data : System.Address) return dbus_shared_h.DBusHandlerResult
+     (D_Conn : access dbus_connection_h.DBusConnection;
+      Msg    : access dbus_message_h.DBusMessage; Usr_Data : System.Address)
+      return dbus_shared_h.DBusHandlerResult
    is
       pragma Unreferenced (D_Conn);
 
-      M : constant D_Bus.Messages.Message_Type :=
-         D_Bus.Messages.Create (Msg);
-      SDP : constant access Signal_Data_Pack := SDP_Conversions.To_Pointer
-        (Usr_Data);
+      M : constant D_Bus.Messages.Message_Type := D_Bus.Messages.Create (Msg);
+      SDP : constant access Signal_Data_Pack     :=
+        SDP_Conversions.To_Pointer (Usr_Data);
    begin
       SDP.Msg := M;
       SDP.Ran := True;
@@ -64,6 +91,7 @@ package body D_Bus.Support is
    procedure Null_Free_Data (Item : System.Address) is null;
    pragma Convention (C, Null_Free_Data);
 
+   --  Assertions
    procedure Assert_Valid (O : Root_Object);
    procedure Assert_Valid (O : Root_Object) is
    begin
@@ -76,13 +104,11 @@ package body D_Bus.Support is
    -- OO Signals --
    ----------------
    procedure Register_Signal
-     (O : in out Root_Object;
-      Iface : String;
-      Name : String)
+     (O : in out Root_Object; Iface : String; Name : String)
    is
       Match_Rule : constant String :=
-         "path=" & D_Bus.Types.To_String (O.Node) & ", interface=" & Iface &
-         ", member=" & Name;
+        "path=" & D_Bus.Types.To_String (O.Node) & ", interface=" & Iface &
+        ", member=" & Name;
    begin
       Assert_Valid (O);
 
@@ -90,14 +116,19 @@ package body D_Bus.Support is
          raise D_Bus_Error with "Asked to register duplicate signal.";
       end if;
 
-      D_Bus.Connection.Add_Match (Connection, Match_Rule);
+      --  Note: changing global state
+      D_Bus_Lock.Acquire;
+      Critical_Section :
+      begin
+         D_Bus.Connection.Add_Match (Connection, Match_Rule);
+      end Critical_Section;
+      D_Bus_Lock.Release;
+
       O.Signals.Insert (Iface & "/" & Name, Match_Rule);
    end Register_Signal;
 
    procedure Unregister_Signal
-    (O : in out Root_Object;
-     Iface : String;
-     Name : String)
+     (O : in out Root_Object; Iface : String; Name : String)
    is
       procedure Remove_Match (Rule : String);
       procedure Remove_Match (Rule : String) is
@@ -109,109 +140,114 @@ package body D_Bus.Support is
          D_Bus.Arguments.Append (Args, +Rule);
          Discard :=
            D_Bus.Connection.Call_Blocking
-             (Connection => Connection,
-              Destination => "org.freedesktop.DBus",
-              Path => +"/org/freedesktop/DBus",
-              Iface => "org.freedesktop.DBus",
-              Method => "RemoveMatch",
-              Args => Args);
+             (Connection => Connection, Destination => "org.freedesktop.DBus",
+              Path       => +"/org/freedesktop/DBus",
+              Iface      => "org.freedesktop.DBus", Method => "RemoveMatch",
+              Args       => Args);
       end Remove_Match;
    begin
       Assert_Valid (O);
-
       if not O.Signals.Contains (Iface & "/" & Name) then
          raise D_Bus_Error with "Asked to unregister nonexisting signal.";
       end if;
 
-      Remove_Match (O.Signals (Iface & "/" & Name));
+      --  Note: Changing global Connection state
+      D_Bus_Lock.Acquire;
+      Critical_Section :
+      begin
+         Remove_Match (O.Signals (Iface & "/" & Name));
+      end Critical_Section;
+      D_Bus_Lock.Release;
+
       O.Signals.Delete (Iface & "/" & Name);
    end Unregister_Signal;
 
    procedure Await_Signal
-     (O : in out Root_Object;
-      Msg : out D_Bus.Messages.Message_Type;
-      Iface : String;
+     (O : Root_Object; Msg : out D_Bus.Messages.Message_Type; Iface : String;
       Name : String)
    is
       use type Interfaces.C.int;
       use type dbus_types_h.dbus_bool_t;
 
       function Is_Match
-        (Msg : D_Bus.Messages.Message_Type;
-         Node : D_Bus.Types.Obj_Path;
-         Iface : String;
-         Member : String) return Boolean;
+        (Msg   : D_Bus.Messages.Message_Type; Node : D_Bus.Types.Obj_Path;
+         Iface : String; Member : String) return Boolean;
       function Is_Match
-        (Msg : D_Bus.Messages.Message_Type;
-         Node : D_Bus.Types.Obj_Path;
-         Iface : String;
-         Member : String) return Boolean
+        (Msg   : D_Bus.Messages.Message_Type; Node : D_Bus.Types.Obj_Path;
+         Iface : String; Member : String) return Boolean
       is
          use D_Bus.Messages;
          use D_Bus.Types;
       begin
-         return Get_Path (Msg) = To_String (Node)
-            and Get_Interface (Msg) = Iface
-            and Get_Member (Msg) = Member;
+         return
+           Get_Path (Msg) = To_String (Node) and
+           Get_Interface (Msg) = Iface and Get_Member (Msg) = Member;
       end Is_Match;
 
       --  Variables
-      CO : Connection_Overlay;
-      SDP : aliased Signal_Data_Pack;
+      CO    : Connection_Overlay;
+      SDP   : aliased Signal_Data_Pack;
       D_Res : dbus_types_h.dbus_bool_t;
    begin
       Assert_Valid (O);
       CO := Convert (Connection);
 
-      --  Check queued messages
-      for Q_Msg of Messages loop
-         if Is_Match (Q_Msg, O.Node, Iface, Name) then
-            declare
-               C : D_Bus.Messagebox.ML.Cursor;
-            begin
-               C := Messages.Find (Q_Msg);
-               Messages.Delete (C);
-            end;
+      --  Note: Accessing global variables
+      D_Bus_Lock.Acquire;
+      Critical_Section :
+      begin
+         --  Check queued messages
+         for Q_Msg of Messages loop
+            if Is_Match (Q_Msg, O.Node, Iface, Name) then
+               declare
+                  C : D_Bus.Messagebox.ML.Cursor;
+               begin
+                  C := Messages.Find (Q_Msg);
+                  Messages.Delete (C);
+               end;
 
-            Msg := Q_Msg;
-            return;
-         end if;
-      end loop;
+               Msg := Q_Msg;
+               return;
+            end if;
+         end loop;
 
-      --  Set up filter
-      D_Res := dbus_connection_h.dbus_connection_add_filter
-        (connection => CO.Thin_Connection,
-        c_function => Call_Back'Access,
-        user_data => SDP'Address,
-        free_data_function => Null_Free_Data'Access);
-
-      if D_Res = 0 then
-         raise D_Bus_Error with "Could not add connection filter";
-      end if;
-
-      --  Dispatch
-      loop
-         SDP.Ran := False;
-         D_Res := dbus_connection_h.dbus_connection_read_write_dispatch
-           (CO.Thin_Connection, -1);
+         --  Set up filter
+         D_Res :=
+           dbus_connection_h.dbus_connection_add_filter
+             (connection => CO.Thin_Connection, c_function => Call_Back'Access,
+              user_data          => SDP'Address,
+              free_data_function => Null_Free_Data'Access);
 
          if D_Res = 0 then
-            raise D_Bus_Error with "Dispatch failed";
+            raise D_Bus_Error with "Could not add connection filter";
          end if;
 
-         --  Exit if the message matches the pattern
-         if SDP.Ran then
-            if Is_Match (SDP.Msg, O.Node, Iface, Name) then
-               exit;
-            else
-               Messages.Append (SDP.Msg);
+         --  Dispatch
+         loop
+            SDP.Ran := False;
+            D_Res   :=
+              dbus_connection_h.dbus_connection_read_write_dispatch
+                (CO.Thin_Connection, -1);
+
+            if D_Res = 0 then
+               raise D_Bus_Error with "Dispatch failed";
             end if;
-         end if;
-      end loop;
 
-      --  Remove filter
-      dbus_connection_h.dbus_connection_remove_filter
-        (CO.Thin_Connection, Call_Back'Access, SDP'Address);
+            --  Exit if the message matches the pattern
+            if SDP.Ran then
+               if Is_Match (SDP.Msg, O.Node, Iface, Name) then
+                  exit;
+               else
+                  Messages.Append (SDP.Msg);
+               end if;
+            end if;
+         end loop;
+
+         --  Remove filter
+         dbus_connection_h.dbus_connection_remove_filter
+           (CO.Thin_Connection, Call_Back'Access, SDP'Address);
+      end Critical_Section;
+      D_Bus_Lock.Release;
 
       Msg := SDP.Msg;
    end Await_Signal;
@@ -220,37 +256,39 @@ package body D_Bus.Support is
    -- OO Methods --
    ----------------
    function Call_Blocking
-     (O      : Root_Object;
-      Iface  : String;
-      Method : String;
-      Args   : D_Bus.Arguments.Argument_List_Type)
+     (O    : Root_Object; Iface : String; Method : String;
+      Args : D_Bus.Arguments.Argument_List_Type)
       return D_Bus.Arguments.Argument_List_Type
    is
       use Ada.Strings.Unbounded;
+
+      Result : D_Bus.Arguments.Argument_List_Type;
    begin
       Assert_Valid (O);
-
       if O.Destination = Null_Unbounded_String then
-         raise D_Bus_Error with
-            "Asked to call method on object with no destination.";
+         raise D_Bus_Error
+           with "Asked to call method on object with no destination.";
       end if;
 
-      return D_Bus.Connection.Call_Blocking
-        (Connection => Connection,
-         Destination => To_String (O.Destination),
-         Path => O.Node,
-         Iface => Iface,
-         Method => Method,
-         Args => Args);
+      --  Note: accessing global Connection
+      D_Bus_Lock.Acquire;
+      Critical_Section :
+      begin
+         Result :=
+           D_Bus.Connection.Call_Blocking
+             (Connection  => Connection,
+              Destination => To_String (O.Destination), Path => O.Node,
+              Iface       => Iface, Method => Method, Args => Args);
+      end Critical_Section;
+      D_Bus_Lock.Release;
+
+      return Result;
    end Call_Blocking;
 
    --------------------------------
    -- Constructor and Destructor --
    --------------------------------
-   procedure Create
-     (O : out Root_Object;
-      Node : Unbounded_Object_Path)
-   is
+   procedure Create (O : out Root_Object; Node : Unbounded_Object_Path) is
       use Ada.Strings.Unbounded;
       use type D_Bus.Types.Obj_Path;
    begin
@@ -258,14 +296,11 @@ package body D_Bus.Support is
          raise D_Bus_Error with "Asked to recreate a valid object.";
       end if;
 
-      O.Node := +To_String (Node);
+      O.Node  := +To_String (Node);
       O.Valid := True;
    end Create;
 
-   procedure Set_Destination
-     (O : out Root_Object;
-      Destination : String)
-   is
+   procedure Set_Destination (O : out Root_Object; Destination : String) is
       use Ada.Strings.Unbounded;
    begin
       O.Destination := To_Unbounded_String (Destination);
@@ -275,8 +310,25 @@ package body D_Bus.Support is
    begin
       Assert_Valid (O);
 
-      O.Valid := False;
+      O.Valid       := False;
       O.Destination := Ada.Strings.Unbounded.Null_Unbounded_String;
       O.Signals.Clear;
    end Destroy;
+begin
+   declare
+      use type dbus_types_h.dbus_bool_t;
+
+      CO  : Connection_Overlay;
+      Err : aliased dbus_errors_h.DBusError;
+   begin
+      CO.Thin_Connection :=
+        dbus_bus_h.dbus_bus_get_private
+          (dbus_shared_h.DBUS_BUS_SESSION, Err'Access);
+
+      if dbus_errors_h.dbus_error_is_set (Err'Access) = 1 then
+         raise D_Bus_Error with "Unable to acquire a private session bus.";
+      end if;
+
+      Connection := Convert (CO);
+   end;
 end D_Bus.Support;
