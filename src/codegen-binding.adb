@@ -237,7 +237,8 @@ package body Codegen.Binding is
                           Pkg.Type_Declarations
                             (TD.Struct_Members (I).Type_Code),
                         DBus_Name =>
-                           DBus_Name & ".Get_Element (" & I'Image & ")",
+                           "D_Bus.Arguments.Containers.Struct_Type (" &
+                           DBus_Name & ")" & ".Get_Element (" & I'Image & ")",
                         Ada_Name  => "Element_" & (+TD.Name));
                      Assign
                        (Ada_Name & "." & (+TD.Struct_Members (I).Name),

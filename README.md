@@ -70,3 +70,9 @@ end Main;
 Server Binding Usage
 --------------------
 TODO
+
+Licence
+-------
+    This code is GPL-licensed, except that the DBus support libraries `D_Bus.Support` and `D_Bus.Extra` are both
+GPL with Linking Exception (as per the GNAT source code). In this way generated code should be usable in proprietary
+applications, provided that the applications themselves acknowledge that they link to `libdbusada` and `libdbusada-support`.
