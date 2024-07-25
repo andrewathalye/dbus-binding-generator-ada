@@ -8,7 +8,7 @@ Test XML specifications can be found in `data/`, test code can be found in `test
 
 Client Binding Usage
 --------------------
-See `test/src/mpris_simpl.adb` for an extremely simple application.
+See `test/src/mpris_simple.adb` for an extremely simple application.
 This duplicates the functionality of `playerctl metadata`.
 
 Server Binding Usage
