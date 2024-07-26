@@ -9,12 +9,13 @@ with org_mpris_MediaPlayer2_Player;
 
 --  Support Code
 with D_Bus.Support;         use D_Bus.Support;
+with D_Bus.Support.Client;  use D_Bus.Support.Client;
 with D_Bus.Generated_Types; use D_Bus.Generated_Types;
 
 procedure MPRIS_Simple is
    --  D_Bus Object Types
    type MPRIS_Object is
-   new Root_Object and org_mpris_MediaPlayer2_Player.Child_Interface with
+   new Client_Object and org_mpris_MediaPlayer2_Player.Child_Interface with
    null record;
 
    --  Renamings

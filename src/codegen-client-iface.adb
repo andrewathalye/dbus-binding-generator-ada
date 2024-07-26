@@ -1,4 +1,4 @@
-with Codegen.Output.Client; use Codegen.Output.Client;
+with Codegen.Output.Subprograms; use Codegen.Output.Subprograms;
 use Codegen.Output;
 
 with Codegen.Binding; use Codegen.Binding;
@@ -12,6 +12,7 @@ package body Codegen.Client.Iface is
    ----------------
    -- Print_Spec --
    ----------------
+   procedure Print_Spec (Pkg : Ada_Package_Type);
    procedure Print_Spec (Pkg : Ada_Package_Type) is
    begin
       --  Preamble
@@ -33,6 +34,8 @@ package body Codegen.Client.Iface is
 
       With_Entity ("D_Bus.Support");
       --  `Unbounded_Object_Path`, `Unbounded_Signature`
+      With_Entity ("D_Bus.Support.Client");
+      --  `Client_Interface`
 
       With_Entity ("D_Bus.Generated_Types");
       Use_Entity ("D_Bus.Generated_Types");
@@ -51,7 +54,7 @@ package body Codegen.Client.Iface is
          if Pkg.Properties.Is_Empty then
             Declare_Type
               ("Child_Interface",
-               "limited interface and D_Bus.Support.Root_Interface");
+               "limited interface and D_Bus.Support.Client.Client_Interface");
          else
             Declare_Type
               ("Child_Interface",
@@ -97,6 +100,7 @@ package body Codegen.Client.Iface is
    ----------------
    -- Print_Body --
    ----------------
+   procedure Print_Body (Pkg : Ada_Package_Type);
    procedure Print_Body (Pkg : Ada_Package_Type) is
       use type Parsing.DBus_Direction;
 
@@ -325,4 +329,10 @@ package body Codegen.Client.Iface is
       End_Package (+Pkg.Name);
       --!pp on
    end Print_Body;
+
+   procedure Print (Pkg : Ada_Package_Type) is
+   begin
+      Print_Spec (Pkg);
+      Print_Body (Pkg);
+   end Print;
 end Codegen.Client.Iface;

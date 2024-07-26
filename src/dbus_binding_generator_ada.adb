@@ -22,8 +22,9 @@ with Parsing;
 with Codegen;
 with Codegen.Types;
 
---  Client Codegen
+--  Client / Server Codegen
 with Codegen.Client.Iface;
+with Codegen.Server.Iface;
 
 --  Utils
 with Shared; use Shared;
@@ -63,19 +64,19 @@ procedure DBus_Binding_Generator_Ada is
    -----------
    -- Types --
    -----------
-   type Client_Server is (Undefined, Client, Server);
+   type Client_Server is (Client, Server);
 
    ---------------
    -- Variables --
    ---------------
    File_List : File_Lists.List;
    Node_List : Node_Lists.List;
-   Mode       : Client_Server := Undefined;
+   Mode      : Client_Server := Client;
 
    ---------
    -- XML --
    ---------
-   Grammar  : Schema.Validators.XML_Grammar;
+   Grammar : Schema.Validators.XML_Grammar;
 begin
    Put_Debug ("dbus_binding_generator_ada");
 
@@ -99,6 +100,7 @@ begin
       exception
          when GNAT.Command_Line.Invalid_Switch =>
             GNAT.Command_Line.Try_Help;
+            Error_Message ("Invalid switch");
             return;
       end;
    end loop;
@@ -106,8 +108,9 @@ begin
    ------------
    -- Checks --
    ------------
-   if Mode = Undefined then
-      Show_Help;
+   if File_List.Is_Empty then
+      GNAT.Command_Line.Try_Help;
+      Error_Message ("No input files specified");
    end if;
 
    --  Check that input files exist
@@ -116,8 +119,7 @@ begin
    begin
       for File of File_List loop
          if Ada.Directories.Exists (File)
-            and then Ada.Directories.Kind (File) =
-               Ada.Directories.Ordinary_File
+           and then Ada.Directories.Kind (File) = Ada.Directories.Ordinary_File
          then
             null;
          else
@@ -151,8 +153,8 @@ begin
    -- Parse all files into nodes --
    --------------------------------
    declare
-      Input  : Input_Sources.File.File_Input;
-      Reader : Schema.Dom_Readers.Tree_Reader;
+      Input    : Input_Sources.File.File_Input;
+      Reader   : Schema.Dom_Readers.Tree_Reader;
       Document : DOM.Core.Document;
 
       function Parse_File (Name : String) return Parsing.Node_Type;
@@ -178,8 +180,8 @@ begin
          ----------------------
          -- Process document --
          ----------------------
-         Result := Parsing.Process_Node
-           (DOM.Core.Documents.Get_Element (Document));
+         Result :=
+           Parsing.Process_Node (DOM.Core.Documents.Get_Element (Document));
          DOM.Core.Nodes.Free (Document);
          Put_Debug ("Parsed nodes for " & Name);
 
@@ -218,11 +220,9 @@ begin
 
                case Mode is
                   when Client =>
-                     Codegen.Client.Iface.Print_Spec (Pkg);
-                     Codegen.Client.Iface.Print_Body (Pkg);
+                     Codegen.Client.Iface.Print (Pkg);
                   when Server =>
-                     raise Program_Error with "Server codegen unimplemented";
-                  when Undefined => null;
+                     Codegen.Server.Iface.Print (Pkg);
                end case;
 
                Put_Debug ("Generated interface " & (+I.Name));

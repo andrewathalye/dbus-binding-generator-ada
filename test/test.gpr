@@ -4,15 +4,13 @@ project Test is
    for Source_Dirs use ("src/", "generated/");
    for Object_Dir use "obj/";
    for Exec_Dir use "bin";
-   for Main use ("mpris_simple.adb");
+   for Main use ("simple_server.adb");
 
    package Compiler is
-      for Default_Switches ("Ada") use ("-O3", "-gnatp", "-gnatwa", "-gnatwe", "-gnatyy");
---      for Default_Switches ("Ada") use ("-g", "-Og", "-gnata", "-gnatVa", "-gnatwa", "-gnatwe", "-gnatyy");
+      for Default_Switches ("Ada") use ("-g", "-Og", "-gnata", "-gnatVa", "-gnatwa", "-gnatwe", "-gnatyy");
    end Compiler;
 
    package Binder is
-      null;
---      for Default_Switches ("Ada") use ("-Es");
+      for Default_Switches ("Ada") use ("-Es");
    end Binder;
 end Test;

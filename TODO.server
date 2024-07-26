@@ -1,0 +1,56 @@
+Server Bindings:
+================
+
+D_Bus.Server:
+spec:
+   Dispatcher : Proc_Dispatcher_Type;
+
+   procedure Add_Object (O : Server_Object'Class);
+   procedure Remove_Object (O : Server_Object'Class);
+
+   procedure Register_Methods;
+body:
+   Objects : Vector (object_path, Root_Server_Object);
+
+   procedure tld_domain_Interface_MethodName (In_Msg : Message_Type) is
+      Path : Unbounded_Object_Path;
+
+      in
+      X : X_Type;
+      Y : Y_Type;
+      Z : Z_Type;
+
+      out 
+      W : W_Type;
+
+      Out_Args : Argument_List_Type;
+      Out_Msg : Message_Type;
+   begin
+      if Objects.Contains (Path) and then Objects (Path) in tld_domain_Interface.Child_Interface'Class then
+         <Bind_To_Ada (In_Msg.Get_Arguments, X, Y, Z)>
+         tld_domain_Interface.Child_Interface'Class (Objects (Path)).MethodName (X, Y, Z);
+         <Bind_To_DBus (W, Out_Args)>
+         Out_Msg.Add_Arguments (Out_Args);
+         D_Bus.Support.Send_Message (Out_Msg);
+      else
+         <Error>
+      end if;
+   end;
+
+   procedure Register is
+      Register_Method_Handler (Dispatcher, "iface", "method", tld_domain_Interface_MethodName'Access);
+   end Register;
+
+tld_domain_Interface:
+   type Child_Interface is limited interface (and org_freedesktop_Properties.Child_Interface)
+   procedure MethodName (O : Child_Interface'Class; X; Y; Z; out W);
+   procedure SignalName (O : Child_Interface'Class; X; Y; Z);
+
+   function PropertyName (O : Child_Interface'Class) return PropertyType;
+   >
+      return <Bind_To_Ada (O.Get (Iface, PropertyName))>
+
+   procedure Set_PropertyName (V : Value);
+   >
+      O.Set (Iface, PropertyName, <Bind_To_DBus (V)>)
+body

@@ -1,13 +1,16 @@
 pragma Ada_2005;
-with Ada.Strings.Unbounded;
-private with Ada.Containers.Indefinite_Hashed_Maps;
-private with Ada.Strings.Hash;
 
-with D_Bus.Arguments;
-with D_Bus.Messages;
+with Ada.Strings.Unbounded;
+private with Ada.Unchecked_Conversion;
+
+private with D_Bus.Connection;
 private with D_Bus.Types;
 
+private with dbus_connection_h;
+
 package D_Bus.Support is
+   pragma Elaborate_Body (D_Bus.Support);
+
    --  A note on thread safety: This package does not call
    --  `dbus_threads_init_default`, but does its own, independent
    --  locking. This means that it is safe to use these subprograms
@@ -23,82 +26,63 @@ package D_Bus.Support is
    -----------
    subtype Unbounded_Object_Path is Ada.Strings.Unbounded.Unbounded_String;
    Null_Unbounded_Object_Path : constant Unbounded_Object_Path;
+   --  The Ada type used to represent a D_Bus object path
 
    subtype Unbounded_Signature is Ada.Strings.Unbounded.Unbounded_String;
    Null_Unbounded_Signature : constant Unbounded_Signature;
+   --  The Ada type used to represent a D_Bus Signature
 
    ---------------------------
    -- Object-Oriented D_Bus --
    ---------------------------
-   type Root_Interface is limited interface;
+   type Root_Object is abstract tagged limited private;
+   --  The root object of all D_Bus objects. It provides
+   --  the below methods.
 
-   --  OO Signals
-   procedure Register_Signal
-     (O : in out Root_Interface; Iface : String; Name : String) is abstract;
-   --  Register a signal and store the registration data internally.
+   function Node (O : Root_Object'Class) return Unbounded_Object_Path;
+   --  Return the node name associated with `O`
 
-   procedure Unregister_Signal
-     (O : in out Root_Interface; Iface : String; Name : String) is abstract;
-   --  Unregister a signal that was stored internally.
-
-   procedure Await_Signal
-     (O     : Root_Interface; Msg : out D_Bus.Messages.Message_Type;
-      Iface : String; Name : String) is abstract;
-   --  Return the message for a registered signal with
-   --  interface `Iface` and name `Name`.
-
-   --  OO Methods
-   function Call_Blocking
-     (O    : Root_Interface; Iface : String; Method : String;
-      Args : D_Bus.Arguments.Argument_List_Type)
-      return D_Bus.Arguments.Argument_List_Type is abstract;
-   --  Same as D_Bus.Connection.Call_Blocking but object-oriented
-
-   ------------------------------
-   -- Base Implementation Type --
-   ------------------------------
-   type Root_Object is limited new Root_Interface with private;
-
-   --  OO Signals
-   procedure Register_Signal
-     (O : in out Root_Object; Iface : String; Name : String);
-
-   procedure Unregister_Signal
-     (O : in out Root_Object; Iface : String; Name : String);
-
-   procedure Await_Signal
-     (O : Root_Object; Msg : out D_Bus.Messages.Message_Type; Iface : String;
-      Name : String);
-
-   --  OO Methods
-   function Call_Blocking
-     (O    : Root_Object; Iface : String; Method : String;
-      Args : D_Bus.Arguments.Argument_List_Type)
-      return D_Bus.Arguments.Argument_List_Type;
-
-   --  Constructor and Destructor
-   procedure Create (O : out Root_Object; Node : Unbounded_Object_Path);
-
-   procedure Set_Destination (O : out Root_Object; Destination : String);
-
-   procedure Destroy (O : in out Root_Object);
+   procedure Destroy (O : in out Root_Object) is abstract;
+   --  Destroy `O` and free all associated structures.
 private
-   subtype Signal_Id is String;
-   subtype Signal_Rule is String;
-
-   package SM is new Ada.Containers.Indefinite_Hashed_Maps
-     (Signal_Id, Signal_Rule, Ada.Strings.Hash, "=", "=");
-
-   type Root_Object is limited new Root_Interface with record
-      Valid       : Boolean := False;
-      Destination : Ada.Strings.Unbounded.Unbounded_String;
-      Node        : D_Bus.Types.Obj_Path;
-      Signals     : SM.Map;
-   end record;
-
+   --  Deferred Constants
    Null_Unbounded_Object_Path : constant Unbounded_Object_Path :=
      Ada.Strings.Unbounded.Null_Unbounded_String;
 
    Null_Unbounded_Signature : constant Unbounded_Signature :=
      Ada.Strings.Unbounded.Null_Unbounded_String;
+
+   --  Types
+   type Root_Object is abstract tagged limited record
+      Valid : Boolean := False;
+      Node : D_Bus.Types.Obj_Path;
+   end record;
+
+   --  Internal Methods
+   procedure Assert_Valid (O : Root_Object'Class);
+   procedure Assert_Invalid (O : Root_Object'Class);
+
+   --  Connection Internals
+   Connection : D_Bus.Connection.Connection_Type;
+
+   --  Lock Internals
+   protected type Lock is
+      entry Acquire;
+      entry Release;
+   private
+      Locked : Boolean := False;
+   end Lock;
+
+   D_Bus_Lock : Lock;
+
+   --  Datatype Conversions
+   type Connection_Overlay is record
+      Thin_Connection : access dbus_connection_h.DBusConnection;
+   end record;
+
+   function Convert is new Ada.Unchecked_Conversion
+     (D_Bus.Connection.Connection_Type, Connection_Overlay);
+   function Convert is new Ada.Unchecked_Conversion
+     (Connection_Overlay, D_Bus.Connection.Connection_Type);
+
 end D_Bus.Support;

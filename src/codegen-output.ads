@@ -22,6 +22,7 @@ package Codegen.Output is
    --  Subprograms
    --  `Signature` means "<Name> (<Parameters>) [return <Type>]"
    procedure Declare_Procedure (Signature : String);
+   procedure Declare_Null_Procedure (Signature : String);
    procedure Declare_Function (Signature : String);
    procedure Start_Procedure (Signature : String);
    procedure Start_Function (Signature : String);
@@ -67,10 +68,4 @@ package Codegen.Output is
    --  Sanitise a name so that it is legal for use as an Ada identifier.
    --  The actual result of this process is opaque, but a consistent result
    --  will be produced for any given `Name`.
-
-private
-   function Get_Arguments
-     (AL : Parsing.Argument_List; Client : Boolean) return String;
-   --  Get the Ada arguments for an argument list.
-   --  This should be accessed via the `Client` and `Server` child packages
 end Codegen.Output;

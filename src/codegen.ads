@@ -64,7 +64,7 @@ private
    --  Packages
    type Ada_Package_Type is record
       Name              : Ada.Strings.Unbounded.Unbounded_String;
-      Real_Name             : Ada.Strings.Unbounded.Unbounded_String;
+      Real_Name         : Ada.Strings.Unbounded.Unbounded_String;
       Type_Declarations : Ada_Type_Declaration_Map;
       Methods           : Parsing.Method_List;
       Signals           : Parsing.Signal_List;

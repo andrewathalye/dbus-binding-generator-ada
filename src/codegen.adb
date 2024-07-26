@@ -172,8 +172,7 @@ package body Codegen is
    --------------------
    -- Create_Package --
    --------------------
-   function Create_Package (I : Interface_Type) return Ada_Package_Type
-   is
+   function Create_Package (I : Interface_Type) return Ada_Package_Type is
       use Ada.Strings.Unbounded;
 
       Pkg : Ada_Package_Type;

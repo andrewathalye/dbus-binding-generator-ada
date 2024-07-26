@@ -1,8 +1,5 @@
 with Ada.Text_IO; use Ada.Text_IO;
 
-with Type_Checking; use Type_Checking;
-with Shared;        use Shared;
-
 package body Codegen.Output is
    File : constant Ada.Text_IO.File_Type := Ada.Text_IO.Standard_Output;
 
@@ -110,6 +107,11 @@ package body Codegen.Output is
       Put_Line (File, "procedure " & Signature & ";");
    end Declare_Procedure;
 
+   procedure Declare_Null_Procedure (Signature : String) is
+   begin
+      Put_Line (File, "procedure " & Signature & " is null;");
+   end Declare_Null_Procedure;
+
    procedure Declare_Function (Signature : String) is
    begin
       Put_Line (File, "function " & Signature & ";");
@@ -159,41 +161,6 @@ package body Codegen.Output is
    begin
       New_Line (File);
    end New_Line;
-
-   -------------------
-   -- Get_Arguments --
-   -------------------
-   function Get_Arguments
-     (AL : Parsing.Argument_List; Client : Boolean) return String
-   is
-      use Ada.Strings.Unbounded;
-      Buf : Unbounded_String;
-
-      function To_Ada_Direction (D : Parsing.DBus_Direction) return String is
-        (case D is when Parsing.DIn => (if Client then "in" else "out"),
-           when Parsing.DOut => (if Client then "out" else "in"));
-   begin
-      if not AL.Is_Empty then
-         declare
-            FI : constant Positive := AL.First_Index;
-            LI : constant Positive := AL.Last_Index;
-         begin
-            for I in FI .. LI loop
-               Append
-                 (Buf,
-                  (+AL (I).Name) & " : " &
-                  To_Ada_Direction (AL (I).Direction) & " " &
-                  (Get_Ada_Type (+AL (I).Type_Code)));
-
-               if I /= LI then
-                  Append (Buf, "; ");
-               end if;
-            end loop;
-         end;
-      end if;
-
-      return To_String (Buf);
-   end Get_Arguments;
 
    procedure Use_Pragma (Expression : String) is
    begin
