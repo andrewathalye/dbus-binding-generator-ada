@@ -94,12 +94,11 @@ package body Codegen.Output is
       Put_Line (File, "end if;");
    end End_If;
 
-   procedure Raise_Exception (Name : String; Message : String := "") is
+   procedure Raise_Exception (Name : String; Expression : String := "") is
    begin
       Put_Line
         (File,
-         "raise " & Name & " with " & ASCII.Quotation & Message &
-         ASCII.Quotation & ";");
+         "raise " & Name & " with " & Expression & ";");
    end Raise_Exception;
 
    procedure Declare_Procedure (Signature : String) is

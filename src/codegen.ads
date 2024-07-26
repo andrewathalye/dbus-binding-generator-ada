@@ -1,9 +1,10 @@
 with Ada.Strings.Unbounded.Hash;
 with Ada.Strings.Unbounded;
 
+private with Ada.Containers.Vectors;
+
 with Parsing;
 
-private with Ada.Containers.Vectors;
 private with Ada.Containers.Hashed_Maps;
 
 package Codegen is

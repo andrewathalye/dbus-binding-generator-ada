@@ -1,6 +1,8 @@
+pragma Ada_2012;
+
 with Ada.Text_IO;
-with Ada.Containers.Indefinite_Doubly_Linked_Lists;
-with Ada.Containers.Doubly_Linked_Lists;
+with Ada.Containers.Indefinite_Vectors;
+with Ada.Containers.Vectors;
 with Ada.Command_Line;
 with Ada.Directories;
 
@@ -20,11 +22,13 @@ with Schema.Validators;
 --  Basic Codegen
 with Parsing;
 with Codegen;
+with Codegen.Lists;
 with Codegen.Types;
 
 --  Client / Server Codegen
 with Codegen.Client.Iface;
 with Codegen.Server.Iface;
+with Codegen.Server.Dispatcher;
 
 --  Utils
 with Shared; use Shared;
@@ -34,11 +38,11 @@ procedure DBus_Binding_Generator_Ada is
    --------------------
    -- Instantiations --
    --------------------
-   package File_Lists is new Ada.Containers.Indefinite_Doubly_Linked_Lists
-     (String);
+   package File_Lists is new Ada.Containers.Indefinite_Vectors
+     (Positive, String);
    use type Parsing.Node_Type;
-   package Node_Lists is new Ada.Containers.Doubly_Linked_Lists
-     (Parsing.Node_Type);
+   package Node_Lists is new Ada.Containers.Vectors
+     (Positive, Parsing.Node_Type);
 
    -----------------
    -- Subprograms --
@@ -69,8 +73,8 @@ procedure DBus_Binding_Generator_Ada is
    ---------------
    -- Variables --
    ---------------
-   File_List : File_Lists.List;
-   Node_List : Node_Lists.List;
+   File_List : File_Lists.Vector;
+   Node_List : Node_Lists.Vector;
    Mode      : Client_Server := Client;
 
    ---------
@@ -200,8 +204,8 @@ begin
    -- Generate code --
    -------------------
    declare
-      Types_Pkg : Codegen.Types.Ada_Types_Package_Type;
-      --  All collected type declarations
+      Pkg_List : Codegen.Lists.Ada_Package_List;
+      --  All declared interfaces as Ada packages
 
       procedure Recurse_Node (Node : in out Parsing.Node_Type);
       procedure Recurse_Node (Node : in out Parsing.Node_Type) is
@@ -212,31 +216,44 @@ begin
          end loop;
 
          for I of Node.Interfaces loop
-            declare
-               Pkg : constant Codegen.Ada_Package_Type :=
-                 Codegen.Create_Package (I);
-            begin
-               Codegen.Types.Append_Types (Types_Pkg, Pkg);
-
-               case Mode is
-                  when Client =>
-                     Codegen.Client.Iface.Print (Pkg);
-                  when Server =>
-                     Codegen.Server.Iface.Print (Pkg);
-               end case;
-
-               Put_Debug ("Generated interface " & (+I.Name));
-            end;
+            Pkg_List.Append (Codegen.Create_Package (I));
          end loop;
 
-         Put_Debug ("Generated all interfaces for node " & (+Node.Name));
+         Put_Debug
+           ("Created packages for node " & (+Node.Name) & "'s interfaces");
       end Recurse_Node;
    begin
+      --  Collect all packages / interfaces
       for Top_Level_Node of Node_List loop
          Recurse_Node (Top_Level_Node);
       end loop;
 
-      Codegen.Types.Print (Types_Pkg);
-      Put_Debug ("Generated types package");
+      case Mode is
+         when Client =>
+            --  Generate interface packages
+            for Pkg of Pkg_List loop
+               Codegen.Client.Iface.Print (Pkg);
+            end loop;
+         when Server =>
+            --  Generate interface packages
+            for Pkg of Pkg_List loop
+               Codegen.Server.Iface.Print (Pkg);
+            end loop;
+
+            --  Generate the dispatcher package
+            Codegen.Server.Dispatcher.Print (Pkg_List);
+      end case;
+
+      --  Collect and generate types
+      declare
+         Types_Pkg : Codegen.Types.Ada_Types_Package_Type;
+      begin
+         for Pkg of Pkg_List loop
+            Codegen.Types.Append_Types (Types_Pkg, Pkg);
+         end loop;
+
+         Codegen.Types.Print (Types_Pkg);
+         Put_Debug ("Generated types package");
+      end;
    end;
 end DBus_Binding_Generator_Ada;

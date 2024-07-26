@@ -55,7 +55,7 @@ package Codegen.Output is
    --  Assignment and Invocation
    procedure Assign (Entity : String; Expression : String);
    procedure Call (Expression : String);
-   procedure Raise_Exception (Name : String; Message : String := "");
+   procedure Raise_Exception (Name : String; Expression : String := "");
 
    --  Comments and Formatting
    procedure Large_Comment (Message : String);

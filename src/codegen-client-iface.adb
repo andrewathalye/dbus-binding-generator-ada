@@ -175,9 +175,6 @@ package body Codegen.Client.Iface is
            ("Iface", "constant String", """" & (+Pkg.Real_Name) & """");
 
          --  Methods
-         if not Pkg.Methods.Is_Empty then
-            Large_Comment ("Methods");
-         end if;
          for M of Pkg.Methods loop
             Start_Procedure (Method_Signature (M));
                Declare_Entity
@@ -220,9 +217,6 @@ package body Codegen.Client.Iface is
          end loop;
 
          --  Signals
-         if not Pkg.Signals.Is_Empty then
-            Large_Comment ("Signals");
-         end if;
          for S of Pkg.Signals loop
             Start_Procedure (Signal_Register_Signature (S));
             Begin_Code;
@@ -260,9 +254,6 @@ package body Codegen.Client.Iface is
          end loop;
 
          --  Properties
-         if not Pkg.Properties.Is_Empty then
-            Large_Comment ("Properties");
-         end if;
          for P of Pkg.Properties loop
             --  Getter
             if P.PAccess in Parsing.Read | Parsing.Readwrite then
