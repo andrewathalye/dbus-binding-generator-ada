@@ -12,16 +12,16 @@ with org_mpris_MediaPlayer2_Playlists;
 with org_mpris_MediaPlayer2_TrackList;
 
 --  Support Code
-with D_Bus.Support;         use D_Bus.Support;
+with D_Bus.Support.Client;         use D_Bus.Support.Client;
 with D_Bus.Generated_Types; use D_Bus.Generated_Types;
 
 procedure MPRIS is
    --  D_Bus Object Types
    type D_Bus_Object is
-   new Root_Object and org_freedesktop_DBus.Child_Interface with null record;
+   new Client_Object and org_freedesktop_DBus.Child_Interface with null record;
 
    type MPRIS_Object is
-   new Root_Object and org_mpris_MediaPlayer2.Child_Interface and
+   new Client_Object and org_mpris_MediaPlayer2.Child_Interface and
      org_mpris_MediaPlayer2_Player.Child_Interface and
      org_mpris_MediaPlayer2_Playlists.Child_Interface and
      org_mpris_MediaPlayer2_TrackList.Child_Interface with null record;

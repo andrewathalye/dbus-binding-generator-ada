@@ -46,8 +46,8 @@ package D_Bus.Support.Client is
    ----------------------------------------
    -- Implementation for `Client_Object` --
    ----------------------------------------
-   type Client_Object is limited new Root_Object and Client_Interface with
-    private;
+   type Client_Object is abstract limited new Root_Object and Client_Interface
+   with private;
 
    overriding procedure Register_Signal
      (O : in out Client_Object; Iface : String; Name : String);

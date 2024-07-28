@@ -5,6 +5,14 @@ package Codegen.Output.Subprograms is
    function Method_Name (M : Parsing.Method_Type) return String;
    function Method_Signature (M : Parsing.Method_Type) return String;
 
+   --  Serverside
+   function Method_Dispatcher_Name
+     (Pkg : Ada_Package_Type; M : Parsing.Method_Type) return String;
+   function Method_Dispatcher_Signature
+     (Pkg : Ada_Package_Type; M : Parsing.Method_Type) return String;
+   function Method_Call_Expression
+     (M : Parsing.Method_Type) return String;
+
    -------------
    -- Signals --
    -------------

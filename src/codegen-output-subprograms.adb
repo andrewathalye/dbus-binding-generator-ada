@@ -7,15 +7,27 @@ package body Codegen.Output.Subprograms is
    -------------------
    -- Get_Arguments --
    -------------------
-   function Get_Arguments (AL : Parsing.Argument_List) return String;
-   function Get_Arguments (AL : Parsing.Argument_List) return String
+   function Get_Arguments
+     (AL : Parsing.Argument_List;
+      Reverse_Direction : Boolean := False) return String;
+   function Get_Arguments
+     (AL : Parsing.Argument_List;
+      Reverse_Direction : Boolean := False) return String
    is
       use Ada.Strings.Unbounded;
       Buf : Unbounded_String;
 
-      function To_Ada_Direction (D : Parsing.DBus_Direction) return String is
-        (case D is when Parsing.DIn => "",
-           when Parsing.DOut => "out");
+      function To_Ada_Direction (D : Parsing.DBus_Direction) return String;
+      function To_Ada_Direction (D : Parsing.DBus_Direction) return String
+      is
+      begin
+         case D is
+            when Parsing.DIn =>
+               return (if Reverse_Direction then "out" else "");
+            when Parsing.DOut =>
+               return (if Reverse_Direction then "" else "out");
+         end case;
+      end To_Ada_Direction;
    begin
       if not AL.Is_Empty then
          declare
@@ -60,6 +72,57 @@ package body Codegen.Output.Subprograms is
         (if Args'Length > 0 then "; " & Args else "") & ")";
    end Method_Signature;
 
+   ----------------------------
+   -- Method_Dispatcher_Name --
+   ----------------------------
+   function Method_Dispatcher_Name
+     (Pkg : Ada_Package_Type; M : Parsing.Method_Type) return String
+   is
+   begin
+      return (+Pkg.Name) & "_" & Method_Name (M);
+   end Method_Dispatcher_Name;
+
+   ---------------------------------
+   -- Method_Dispatcher_Signature --
+   ---------------------------------
+   function Method_Dispatcher_Signature
+     (Pkg : Ada_Package_Type; M : Parsing.Method_Type) return String
+   is
+   begin
+      return
+        Method_Dispatcher_Name (Pkg, M) &
+        " (In_Msg : D_Bus.Messages.Message_Type)";
+   end Method_Dispatcher_Signature;
+
+   ----------------------------
+   -- Method_Call_Expression --
+   ----------------------------
+   function Method_Call_Expression
+     (M : Parsing.Method_Type) return String
+   is
+      use Ada.Strings.Unbounded;
+      use type Parsing.Argument_Lists.Cursor;
+
+      Arguments : Unbounded_String;
+   begin
+      if not M.Arguments.Is_Empty then
+         Append (Arguments, " (");
+
+         for AC in M.Arguments.Iterate loop
+            if AC = M.Arguments.First then
+               Append (Arguments, M.Arguments (AC).Name);
+            else
+               Append (Arguments, ", ");
+               Append (Arguments, M.Arguments (AC).Name);
+            end if;
+         end loop;
+
+         Append (Arguments, ")");
+      end if;
+
+      return Method_Name (M) & To_String (Arguments);
+   end Method_Call_Expression;
+
    -----------------
    -- Signal_Name --
    -----------------
@@ -72,10 +135,12 @@ package body Codegen.Output.Subprograms is
    -- Signal_Signature --
    ----------------------
    function Signal_Signature (S : Parsing.Signal_Type) return String is
-      Args : constant String := Get_Arguments (S.Arguments);
+      Args : constant String := Get_Arguments
+        (AL => S.Arguments, Reverse_Direction => True);
    begin
-      return Signal_Name (S) & "(O : Child_Interface'Class" &
-      (if Args'Length = 0 then "" else "; ") & ")";
+      return
+        Signal_Name (S) & "(O : Child_Interface'Class" &
+        (if Args'Length = 0 then "" else "; " & Args) & ")";
    end Signal_Signature;
 
    --------------------------
@@ -165,7 +230,7 @@ package body Codegen.Output.Subprograms is
    is
    begin
       return
-        Property_Write_Name (P) & " (O : Child_Interface'Class; Value : " &
-        Type_Checking.Get_Ada_Type (+P.Type_Code) & ")";
+        Property_Write_Name (P) & " (O : in out Child_Interface'Class;" &
+        " Value : " & Type_Checking.Get_Ada_Type (+P.Type_Code) & ")";
    end Property_Write_Signature;
 end Codegen.Output.Subprograms;

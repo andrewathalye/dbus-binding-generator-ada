@@ -22,7 +22,7 @@ with Schema.Validators;
 --  Basic Codegen
 with Parsing;
 with Codegen;
-with Codegen.Lists;
+with Codegen.Maps;
 with Codegen.Types;
 
 --  Client / Server Codegen
@@ -204,8 +204,11 @@ begin
    -- Generate code --
    -------------------
    declare
-      Pkg_List : Codegen.Lists.Ada_Package_List;
+      Pkgs : Codegen.Maps.Ada_Package_Map;
       --  All declared interfaces as Ada packages
+
+      Types : Codegen.Types.Ada_Type_Declaration_Map;
+      --  All declared types as Ada types
 
       procedure Recurse_Node (Node : in out Parsing.Node_Type);
       procedure Recurse_Node (Node : in out Parsing.Node_Type) is
@@ -216,7 +219,11 @@ begin
          end loop;
 
          for I of Node.Interfaces loop
-            Pkg_List.Append (Codegen.Create_Package (I));
+            if not Pkgs.Contains (I.Name) then
+               Pkgs.Insert (I.Name, Codegen.Create_Package (I));
+            else
+               Put_Debug ("Duplicate interface " & (+I.Name));
+            end if;
          end loop;
 
          Put_Debug
@@ -228,32 +235,30 @@ begin
          Recurse_Node (Top_Level_Node);
       end loop;
 
-      case Mode is
-         when Client =>
-            --  Generate interface packages
-            for Pkg of Pkg_List loop
-               Codegen.Client.Iface.Print (Pkg);
-            end loop;
-         when Server =>
-            --  Generate interface packages
-            for Pkg of Pkg_List loop
-               Codegen.Server.Iface.Print (Pkg);
-            end loop;
-
-            --  Generate the dispatcher package
-            Codegen.Server.Dispatcher.Print (Pkg_List);
-      end case;
-
       --  Collect and generate types
       declare
-         Types_Pkg : Codegen.Types.Ada_Types_Package_Type;
       begin
-         for Pkg of Pkg_List loop
-            Codegen.Types.Append_Types (Types_Pkg, Pkg);
+         for Pkg of Pkgs loop
+            Codegen.Types.Add_Types (Types, Pkg);
          end loop;
 
-         Codegen.Types.Print (Types_Pkg);
+         Codegen.Types.Print (Types);
          Put_Debug ("Generated types package");
       end;
+
+      --  Generate client and server code
+      case Mode is
+         when Client =>
+            for Pkg of Pkgs loop
+               Codegen.Client.Iface.Print (Types, Pkg);
+            end loop;
+         when Server =>
+            for Pkg of Pkgs loop
+               Codegen.Server.Iface.Print (Types, Pkg);
+            end loop;
+
+            Codegen.Server.Dispatcher.Print (Types, Pkgs);
+      end case;
+      Put_Debug ("Generated client/server code");
    end;
 end DBus_Binding_Generator_Ada;

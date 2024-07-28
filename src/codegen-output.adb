@@ -96,9 +96,7 @@ package body Codegen.Output is
 
    procedure Raise_Exception (Name : String; Expression : String := "") is
    begin
-      Put_Line
-        (File,
-         "raise " & Name & " with " & Expression & ";");
+      Put_Line (File, "raise " & Name & " with " & Expression & ";");
    end Raise_Exception;
 
    procedure Declare_Procedure (Signature : String) is

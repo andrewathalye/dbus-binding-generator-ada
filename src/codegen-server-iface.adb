@@ -1,8 +1,8 @@
 pragma Ada_2012;
 
-with Codegen.Output; use Codegen.Output;
+with Codegen.Output;             use Codegen.Output;
 with Codegen.Output.Subprograms; use Codegen.Output.Subprograms;
-with Codegen.Binding; use Codegen.Binding;
+with Codegen.Binding;            use Codegen.Binding;
 
 with Type_Checking; use Type_Checking;
 
@@ -17,10 +17,29 @@ package body Codegen.Server.Iface is
    begin
       --  Preamble
       Use_Pragma ("Ada_2005");
+      Use_Pragma ("Warnings (Off, ""-gnatwu"")");
       New_Line;
+
+      With_Entity ("Ada.Strings.Unbounded");
+      --  `Unbounded_String`
+      Use_Type ("Ada.Strings.Unbounded.Unbounded_String");
+      --  ^^
+
+      With_Entity ("Interfaces");
+      --  All basic types
+      Use_Entity ("Interfaces");
+      --  ^^
+
+      With_Entity ("D_Bus.Arguments.Containers");
+      --  `Variant_Type`
+      Use_Type ("D_Bus.Arguments.Containers.Variant_Type");
+      --  ^^
 
       With_Entity ("D_Bus.Support");
       --  `Unbounded_Object_Path`, `Unbounded_Signature`
+      Use_Entity ("D_Bus.Support");
+      --  ^^
+
       With_Entity ("D_Bus.Support.Server");
       --  `Server_Interface` and associated methods
       With_Entity ("D_Bus.Generated_Types");
@@ -65,7 +84,7 @@ package body Codegen.Server.Iface is
          end if;
          for P of Pkg.Properties loop
             Declare_Function (Property_Read_Signature (P));
-            Declare_Function (Property_Write_Signature (P));
+            Declare_Procedure (Property_Write_Signature (P));
             New_Line;
          end loop;
       end;
@@ -75,21 +94,28 @@ package body Codegen.Server.Iface is
    ----------------
    -- Print_Body --
    ----------------
-   procedure Print_Body (Pkg : Ada_Package_Type);
-   procedure Print_Body (Pkg : Ada_Package_Type) is
+   procedure Print_Body
+     (Types : Codegen.Types.Ada_Type_Declaration_Map; Pkg : Ada_Package_Type);
+   procedure Print_Body
+     (Types : Codegen.Types.Ada_Type_Declaration_Map; Pkg : Ada_Package_Type)
+   is
    begin
       --  Preamble
       Use_Pragma ("Ada_2012");
+      Use_Pragma ("Style_Checks (Off)");
+      Use_Pragma ("Warnings (Off, ""-gnatwu"")");
+      Use_Pragma ("Warnings (Off, ""-gnatwr"")");
+      Use_Pragma ("Warnings (Off, ""-gnatwm"")");
+
       With_Entity ("D_Bus.Arguments.Containers");
       With_Entity ("D_Bus.Arguments.Basic");
       With_Entity ("D_Bus.Extra");
+      With_Entity ("D_Bus.Types");
 
       Start_Package_Body (+Pkg.Name);
       begin
          Declare_Entity
-           ("Iface",
-            "constant String",
-            """" & (+Pkg.Real_Name) & """");
+           ("Iface", "constant String", """" & (+Pkg.Real_Name) & """");
 
          --  Methods
          if not Pkg.Methods.Is_Empty then
@@ -106,8 +132,7 @@ package body Codegen.Server.Iface is
          for S of Pkg.Signals loop
             Start_Procedure (Signal_Signature (S));
             begin
-               Declare_Entity
-                 ("Args", "D_Bus.Arguments.Argument_List_Type");
+               Declare_Entity ("Args", "D_Bus.Arguments.Argument_List_Type");
             end;
             Begin_Code;
             begin
@@ -116,16 +141,13 @@ package body Codegen.Server.Iface is
                   Declare_Code;
                   begin
                      Declare_Entity
-                       ("Argument",
-                        Get_Library_DBus_Type (+A.Type_Code));
+                       ("Argument", Get_Library_DBus_Type (+A.Type_Code));
                   end;
                   Begin_Code;
                   begin
                      Bind_To_DBus
-                       (Pkg       => Pkg,
-                        TD        => Pkg.Type_Declarations (A.Type_Code),
-                        Ada_Name  => +A.Name,
-                        DBus_Name => "Argument");
+                       (Types    => Types, Type_Code => A.Type_Code,
+                        Ada_Name => +A.Name, DBus_Name => "Argument");
 
                      Call ("D_Bus.Arguments.Append (Args, Argument)");
                   end;
@@ -149,8 +171,7 @@ package body Codegen.Server.Iface is
             begin
                Declare_Entity
                  ("Value", "D_Bus.Arguments.Containers.Variant_Type");
-               Declare_Entity
-                 ("Ada_Value", Get_Ada_Type (+P.Type_Code));
+               Declare_Entity ("Ada_Value", Get_Ada_Type (+P.Type_Code));
             end;
             Begin_Code;
             begin
@@ -158,12 +179,11 @@ package body Codegen.Server.Iface is
                Call ("O.Get_Property (Iface, """ & (+P.Name) & """, Value)");
 
                Bind_To_Ada
-                 (Pkg => Pkg,
-                  TD => Pkg.Type_Declarations (P.Type_Code),
+                 (Types     => Types, Type_Code => P.Type_Code,
                   DBus_Name =>
-                     Get_Library_DBus_Type (+P.Type_Code)
-                     & " (Value.Get_Argument)",
-                  Ada_Name => "Ada_Value");
+                    Get_Library_DBus_Type (+P.Type_Code) &
+                    " (Value.Get_Argument)",
+                  Ada_Name  => "Ada_Value");
 
                Return_Entity ("Ada_Value");
             end;
@@ -174,20 +194,17 @@ package body Codegen.Server.Iface is
             begin
                Declare_Entity
                  ("DBus_Value",
-                  Get_Library_DBus_Type (+P.Name));
+                  Get_Library_DBus_Type (+P.Type_Code));
             end;
             Begin_Code;
             begin
                Bind_To_DBus
-                 (Pkg => Pkg,
-                  TD => Pkg.Type_Declarations (P.Type_Code),
-                  Ada_Name => "Value",
-                  DBus_Name => "DBus_Value");
+                 (Types    => Types, Type_Code => P.Type_Code,
+                  Ada_Name => "Value", DBus_Name => "DBus_Value");
 
                --  Assign the property after creating a Variant
                Call
-                 ("O.Set_Property (Iface, """ &
-                  (+P.Name) &
+                 ("O.Set_Property (Iface, """ & (+P.Name) &
                   """, D_Bus.Arguments.Containers.Create (DBus_Value))");
             end;
             End_Procedure (Property_Write_Name (P));
@@ -199,9 +216,11 @@ package body Codegen.Server.Iface is
    -----------
    -- Print --
    -----------
-   procedure Print (Pkg : Ada_Package_Type) is
+   procedure Print
+     (Types : Codegen.Types.Ada_Type_Declaration_Map; Pkg : Ada_Package_Type)
+   is
    begin
       Print_Spec (Pkg);
-      Print_Body (Pkg);
+      Print_Body (Types, Pkg);
    end Print;
 end Codegen.Server.Iface;

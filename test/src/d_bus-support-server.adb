@@ -93,7 +93,7 @@ package body D_Bus.Support.Server is
    -- Get_Property --
    ------------------
    procedure Get_Property
-     (O     : in out Server_Object; Iface : String; Name : String;
+     (O     : Server_Object; Iface : String; Name : String;
       Value :    out D_Bus.Arguments.Containers.Variant_Type)
    is
       use D_Bus.Types;

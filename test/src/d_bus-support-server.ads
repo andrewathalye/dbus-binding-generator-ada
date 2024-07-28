@@ -51,7 +51,7 @@ package D_Bus.Support.Server is
    --  standard `org.freedesktop.DBus.Properties.Set`
 
    procedure Get_Property
-     (O : in out Server_Interface;
+     (O : Server_Interface;
       Iface : String;
       Name : String;
       Value : out D_Bus.Arguments.Containers.Variant_Type) is abstract;
@@ -61,8 +61,8 @@ package D_Bus.Support.Server is
    -------------------
    -- Server_Object --
    -------------------
-   type Server_Object is limited new Root_Object and Server_Interface with
-    private;
+   type Server_Object is abstract limited new Root_Object and Server_Interface
+   with private;
    --  The root type of all serverside D_Bus objects.
    --  This is distinct from Client_Object to allow clientside and serverside
    --  bindings to be used by the same application.
@@ -88,7 +88,7 @@ package D_Bus.Support.Server is
       Value : D_Bus.Arguments.Containers.Variant_Type);
 
    procedure Get_Property
-     (O : in out Server_Object;
+     (O : Server_Object;
       Iface : String;
       Name : String;
       Value : out D_Bus.Arguments.Containers.Variant_Type);
