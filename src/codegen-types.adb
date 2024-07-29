@@ -1,6 +1,8 @@
 pragma Ada_2012;
 
-with Codegen.Output; use Codegen.Output;
+with Codegen.Output;             use Codegen.Output;
+with Codegen.Output.Subprograms; use Codegen.Output.Subprograms;
+with Codegen.Binding;            use Codegen.Binding;
 
 with Shared;        use Shared;
 with Type_Checking; use Type_Checking;
@@ -137,6 +139,46 @@ package body Codegen.Types is
       end case;
    end Generate_Ada_Types;
 
+   ---------------------------------
+   -- Calculate_Request_Signature --
+   ---------------------------------
+   function Calculate_Request_Signature
+     (Arguments : Parsing.Argument_List) return String
+   is
+      use Ada.Strings.Unbounded;
+      use type Parsing.DBus_Direction;
+
+      Buf : Unbounded_String;
+   begin
+      for A of Arguments loop
+         if A.Direction = Parsing.DIn then
+            Append (Buf, A.Type_Code);
+         end if;
+      end loop;
+
+      return To_String (Buf);
+   end Calculate_Request_Signature;
+
+   -------------------------------
+   -- Calculate_Reply_Signature --
+   -------------------------------
+   function Calculate_Reply_Signature
+     (Arguments : Parsing.Argument_List) return String
+   is
+      use Ada.Strings.Unbounded;
+      use type Parsing.DBus_Direction;
+
+      Buf : Unbounded_String;
+   begin
+      for A of Arguments loop
+         if A.Direction = Parsing.DOut then
+            Append (Buf, A.Type_Code);
+         end if;
+      end loop;
+
+      return To_String (Buf);
+   end Calculate_Reply_Signature;
+
    ---------------
    -- Add_Types --
    ---------------
@@ -217,6 +259,9 @@ package body Codegen.Types is
          end loop;
          return Result;
       end Resolve_Dependencies;
+
+      Dependencies : constant Ada_Type_Declaration_List :=
+        Resolve_Dependencies;
    begin
       Use_Pragma ("Ada_2005");
       Use_Pragma ("Warnings (Off, ""-gnatwu"")");
@@ -243,53 +288,98 @@ package body Codegen.Types is
       New_Line;
 
       Start_Package ("D_Bus.Generated_Types");
-      for TD of Resolve_Dependencies loop
-         declare
-            Name : constant String := Get_Ada_Type (+TD.Type_Code);
-         begin
-            case TD.Kind is
-               when Basic_Kind | Variant_Kind =>
-                  null;
-               when Array_Kind =>
-                  Declare_Package
-                    ("Pkg_" & Name,
-                     "new Ada.Containers.Vectors (Positive, " &
-                     (Get_Ada_Type (+TD.Array_Element_Type_Code) & ")"));
+      begin
+         Large_Comment ("Generated Types");
+         for TD of Dependencies loop
+            declare
+               Name : constant String := Get_Ada_Type (+TD.Type_Code);
+            begin
+               case TD.Kind is
+                  when Basic_Kind | Variant_Kind =>
+                     null;
+                  when Array_Kind =>
+                     Declare_Package
+                       ("Pkg_" & Name,
+                        "new Ada.Containers.Vectors (Positive, " &
+                        (Get_Ada_Type (+TD.Array_Element_Type_Code) & ")"));
 
-                  Declare_Subtype (Name, "Pkg_" & Name & ".Vector");
-                  Use_Type (Name);
-                  New_Line;
-               when Struct_Kind =>
-                  Start_Record (Name);
-                  for SM of TD.Struct_Members loop
-                     Declare_Entity (+SM.Name, Get_Ada_Type (+SM.Type_Code));
-                  end loop;
-                  End_Record;
-                  New_Line;
-               when Ordered_Dict_Kind =>
-                  Declare_Package
-                    ("Pkg_" & Name,
-                     "new Ada.Containers.Ordered_Maps (" &
-                     Get_Ada_Type (+TD.Dict_Key_Type_Code) & ", " &
-                     Get_Ada_Type (+TD.Dict_Element_Type_Code) & ")");
+                     Declare_Subtype (Name, "Pkg_" & Name & ".Vector");
+                     Use_Type (Name);
+                     New_Line;
+                  when Struct_Kind =>
+                     Start_Record (Name);
+                     for SM of TD.Struct_Members loop
+                        Declare_Entity
+                          (+SM.Name, Get_Ada_Type (+SM.Type_Code));
+                     end loop;
+                     End_Record;
+                     New_Line;
+                  when Ordered_Dict_Kind =>
+                     Declare_Package
+                       ("Pkg_" & Name,
+                        "new Ada.Containers.Ordered_Maps (" &
+                        Get_Ada_Type (+TD.Dict_Key_Type_Code) & ", " &
+                        Get_Ada_Type (+TD.Dict_Element_Type_Code) & ")");
 
-                  Declare_Subtype (Name, "Pkg_" & Name & ".Map");
-                  Use_Type (Name);
-                  New_Line;
-               when Hashed_Dict_Kind =>
-                  Declare_Package
-                    ("Pkg_" & Name,
-                     "new Ada.Containers.Hashed_Maps (" &
-                     Get_Ada_Type (+TD.Dict_Key_Type_Code) & ", " &
-                     Get_Ada_Type (+TD.Dict_Element_Type_Code) &
-                     ", Ada.Strings.Unbounded.Hash, ""="")");
+                     Declare_Subtype (Name, "Pkg_" & Name & ".Map");
+                     Use_Type (Name);
+                     New_Line;
+                  when Hashed_Dict_Kind =>
+                     Declare_Package
+                       ("Pkg_" & Name,
+                        "new Ada.Containers.Hashed_Maps (" &
+                        Get_Ada_Type (+TD.Dict_Key_Type_Code) & ", " &
+                        Get_Ada_Type (+TD.Dict_Element_Type_Code) &
+                        ", Ada.Strings.Unbounded.Hash, ""="")");
 
-                  Declare_Subtype (Name, "Pkg_" & Name & ".Map");
-                  Use_Type (Name);
-                  New_Line;
-            end case;
-         end;
-      end loop;
+                     Declare_Subtype (Name, "Pkg_" & Name & ".Map");
+                     Use_Type (Name);
+                     New_Line;
+               end case;
+            end;
+         end loop;
+         New_Line;
+
+         Large_Comment ("Binding");
+         for TD of Dependencies loop
+            Declare_Procedure (Bind_To_Ada_Signature (TD));
+            Declare_Procedure (Bind_To_DBus_Signature (TD));
+         end loop;
+      end;
+      End_Package ("D_Bus.Generated_Types");
+
+      --  Preamble
+      Use_Pragma ("Ada_2012");
+      Use_Pragma ("Style_Checks (Off)");
+      Use_Pragma ("Warnings (Off, ""-gnatwu"")");
+      Use_Pragma ("Warnings (Off, ""-gnatwr"")");
+      Use_Pragma ("Warnings (Off, ""-gnatwm"")");
+
+      With_Entity ("D_Bus.Types");
+
+      Start_Package_Body ("D_Bus.Generated_Types");
+      begin
+         --  Bindings
+         for TD of Dependencies loop
+            Start_Procedure (Bind_To_Ada_Signature (TD));
+            Begin_Code;
+            begin
+               Bind_To_Ada
+                 (Types     => Types, Type_Code => TD.Type_Code,
+                  DBus_Name => "DBus_Entity", Ada_Name => "Ada_Entity");
+            end;
+            End_Procedure (Bind_To_Ada_Name);
+
+            Start_Procedure (Bind_To_DBus_Signature (TD));
+            Begin_Code;
+            begin
+               Bind_To_DBus
+                 (Types    => Types, Type_Code => TD.Type_Code,
+                  Ada_Name => "Ada_Entity", DBus_Name => "DBus_Entity");
+            end;
+            End_Procedure (Bind_To_DBus_Name);
+         end loop;
+      end;
       End_Package ("D_Bus.Generated_Types");
    end Print;
 end Codegen.Types;

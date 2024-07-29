@@ -37,15 +37,36 @@ package body D_Bus.Support is
       end if;
    end Assert_Invalid;
 
-   ------------
-   -- Public --
-   ------------
+   ----------
+   -- Node --
+   ----------
    function Node (O : Root_Object'Class) return Unbounded_Object_Path is
       use D_Bus.Types;
    begin
       Assert_Valid (O);
       return Ada.Strings.Unbounded.To_Unbounded_String (To_String (O.Node));
    end Node;
+
+   -------------------
+   -- Get_Signature --
+   -------------------
+   function Get_Signature
+     (Arguments : D_Bus.Arguments.Argument_List_Type) return String
+   is
+      use Ada.Strings.Unbounded;
+
+      Buf : Unbounded_String;
+   begin
+      for I in 1 .. Arguments.Get_Count loop
+         Append (Buf, Arguments.Get_Element (I).Get_Signature);
+      end loop;
+
+      return To_String (Buf);
+   end Get_Signature;
+
+-----------------
+-- Elaboration --
+-----------------
 begin
    declare
       use type dbus_types_h.dbus_bool_t;

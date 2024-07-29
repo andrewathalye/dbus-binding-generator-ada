@@ -1,7 +1,7 @@
 pragma Ada_2012;
 
 with Ada.Unchecked_Deallocation;
-with Ada.Text_IO;
+with Ada.Exceptions;
 with Interfaces.C.Strings;
 with System.Address_To_Access_Conversions;
 
@@ -31,6 +31,41 @@ package body D_Bus.Support.Server is
       end Critical_Section;
       D_Bus_Lock.Release;
    end Request_Name;
+
+   ---------------------
+   -- Check_Signature --
+   ---------------------
+   procedure Check_Signature
+     (Actual : String;
+      Expected : String);
+   procedure Check_Signature
+     (Actual : String;
+      Expected : String)
+   is
+   begin
+      if Actual /= Expected then
+         raise Invalid_Signature with
+           "Expected signature """ & Expected & """ not found. Found """ &
+            Actual & """ instead";
+      end if;
+   end Check_Signature;
+
+   procedure Check_Signature
+     (Arguments : D_Bus.Arguments.Argument_List_Type;
+      Signature : String)
+   is
+      Arg_Sig : constant String := Get_Signature (Arguments);
+   begin
+      Check_Signature (Arg_Sig, Signature);
+   end Check_Signature;
+
+   procedure Check_Signature
+     (Argument : D_Bus.Arguments.Argument_Type'Class;
+      Signature : String)
+   is
+   begin
+      Check_Signature (Argument.Get_Signature, Signature);
+   end Check_Signature;
 
    ------------------
    -- Release_Name --
@@ -74,6 +109,21 @@ package body D_Bus.Support.Server is
       end Critical_Section;
       D_Bus_Lock.Release;
    end Setup_With_G_Main;
+
+   -------------------
+   -- Run_Iteration --
+   -------------------
+   procedure Run_Iteration is
+      function g_main_context_iteration
+        (Context : System.Address;
+         Blocking : Integer) return Integer;
+      pragma Import (C, g_main_context_iteration);
+
+      Discard : Integer;
+   begin
+      Discard := g_main_context_iteration (System.Null_Address, 1);
+   end Run_Iteration;
+
    ----------------------------------------------------------------------------
    ----------------------------
    -- SERVER_OBJECT'CLASS --
@@ -132,7 +182,6 @@ package body D_Bus.Support.Server is
    is
       pragma Unreferenced (Connection);
       use D_Bus.Messages;
-      use Ada.Text_IO;
 
       --  Variables
       OJA : constant Object_Data_Access :=
@@ -143,10 +192,6 @@ package body D_Bus.Support.Server is
       Request : constant Message_Type := Create (Message);
       Reply : Message_Type;
    begin
-      Put_Line
-        (Get_Path (Request) & ", " & Get_Interface (Request) &
-         ", " & Get_Member (Request));
-
       --  Try to execute the handler
       if not OJA.Handlers.Contains (Get_Interface (Request)) then
          Reply := New_Error
@@ -175,6 +220,30 @@ package body D_Bus.Support.Server is
                      " not implemented by interface " &
                      Get_Interface (Request) &
                      " on object " & Get_Path (Request));
+
+            when X : Unknown_Property =>
+               Reply := New_Error
+                 (Reply_To => Request,
+                  Error_Name => "org.freedesktop.DBus.Error.UnknownProperty",
+                  Error_Message => Ada.Exceptions.Exception_Message (X));
+
+            when X : Invalid_Signature =>
+               Reply := New_Error
+                 (Reply_To => Request,
+                  Error_Name => "org.freedesktop.DBus.Error.InvalidSignature",
+                  Error_Message => Ada.Exceptions.Exception_Message (X));
+
+            when X : Property_Read_Only =>
+               Reply := New_Error
+                 (Reply_To => Request,
+                  Error_Name => "org.freedesktop.DBus.Error.PropertyReadOnly",
+                  Error_Message => Ada.Exceptions.Exception_Message (X));
+
+            when X : Property_Write_Only =>
+               Reply := New_Error
+                 (Reply_To => Request,
+                  Error_Name => "org.freedesktop.DBus.Error.AccessDenied",
+                  Error_Message => Ada.Exceptions.Exception_Message (X));
          end Try_Handler;
       end if;
 
@@ -289,6 +358,21 @@ package body D_Bus.Support.Server is
    -------------------
    -- SERVER_OBJECT --
    -------------------
+   ---------------
+   -- Internals --
+   ---------------
+   procedure Raise_Unknown_Property
+     (O : Server_Object; Iface : String; Name : String);
+   procedure Raise_Unknown_Property
+     (O : Server_Object; Iface : String; Name : String)
+   is
+      use D_Bus.Types;
+   begin
+      raise Unknown_Property with
+        "No property " & Iface & "." & Name & " on object " &
+        To_String (O.Node);
+   end Raise_Unknown_Property;
+
    -----------------
    -- Send_Signal --
    -----------------
@@ -315,41 +399,91 @@ package body D_Bus.Support.Server is
    ------------------
    -- Set_Property --
    ------------------
-   --  TODO: incorrect use of invalidated_properties rn
    procedure Set_Property
      (O     : in out Server_Object; Iface : String; Name : String;
-      Value :        D_Bus.Arguments.Containers.Variant_Type)
+      Value :        D_Bus.Arguments.Containers.Variant_Type;
+      PAccess : Access_Type := Unchanged)
    is
       use type D_Bus.Arguments.Basic.String_Type;
+      use D_Bus.Types;
 
-      Property_Dict : D_Bus.Arguments.Containers.Dict_Entry_Type;
       Property_Array : D_Bus.Arguments.Containers.Array_Type;
-      Empty_Array : D_Bus.Arguments.Containers.Array_Type;
+      Invalidated_Array : D_Bus.Arguments.Containers.Array_Type;
       Args : D_Bus.Arguments.Argument_List_Type;
    begin
       Assert_Valid (O);
 
+      --  Ensure interface exists unless PAccess set
       if not O.Properties.Contains (Iface) then
-         O.Properties.Insert (Iface, Name_Value_Maps.Empty_Map);
+         case PAccess is
+            when Unchanged =>
+               Raise_Unknown_Property (O, Iface, Name);
+            when others =>
+               O.Properties.Insert (Iface, Name_Value_Maps.Empty_Map);
+         end case;
       end if;
 
-      --  Update the object-local list
-      O.Properties (Iface).Include (Name, Value);
+      --  Ensure property exists unless PAccess set
+      if not O.Properties (Iface).Contains (Name) then
+         case PAccess is
+            when Unchanged =>
+               Raise_Unknown_Property (O, Iface, Name);
+            when Read | Write | Readwrite =>
+               O.Properties (Iface).Insert (Name, (PAccess, Value));
+               goto Send_Signal;
+         end case;
+      end if;
+
+      --  Ensure property is writable
+      if PAccess = Unchanged then
+         case O.Properties (Iface) (Name).PAccess is
+            when Read =>
+               raise Property_Read_Only with
+                  "Property " & Iface & "." & Name & " on object " &
+                  To_String (O.Node) & " is read only";
+            when Write | Readwrite => null;
+         end case;
+      end if;
+
+      --  Check the property’s signature and ensure the new value
+      --  has the same signature.
+      Check_Signature :
+      declare
+         Original_Signature : constant String :=
+           O.Properties (Iface) (Name).Value.Get_Argument.Get_Signature;
+         New_Signature : constant String :=
+           Value.Get_Argument.Get_Signature;
+      begin
+         if Original_Signature /= New_Signature then
+            raise Invalid_Signature with
+               "New value for property " & Iface & "." & Name &
+               " on object " & To_String (O.Node) &
+               " has wrong signature: " & New_Signature &
+               " != " & Original_Signature;
+         end if;
+      end Check_Signature;
+
+      O.Properties (Iface) (Name).Value := Value;
 
       --  Send out the PropertiesChanged signal
-      --  a{sv} | [{name, value}]
-      Property_Dict := D_Bus.Arguments.Containers.Create
-        (Key => +Name,
-         Value => Value);
-      Property_Array.Append (Property_Dict);
+      <<Send_Signal>>
+
+      --  a{sv} [{name, value}] | changed_properties
+      declare
+         Property_Dict : D_Bus.Arguments.Containers.Dict_Entry_Type;
+      begin
+         Property_Dict := D_Bus.Arguments.Containers.Create (+Name, Value);
+         Property_Array.Append (Property_Dict);
+      end;
 
       --  as | invalidated_properties
-      Empty_Array.Set_Signature ("s");
+      Invalidated_Array.Set_Signature ("s");
+      --  Note: we don’t currently use this
 
       --  s a{sv} as | interface_name changed_properties invalidated_properties
       Args.Append (+Iface);
       Args.Append (Property_Array);
-      Args.Append (Empty_Array);
+      Args.Append (Invalidated_Array);
 
       O.Send_Signal
         (Iface => "org.freedesktop.DBus.Properties",
@@ -362,28 +496,30 @@ package body D_Bus.Support.Server is
    ------------------
    procedure Get_Property
      (O     : Server_Object; Iface : String; Name : String;
-      Value :    out D_Bus.Arguments.Containers.Variant_Type)
+      Value :    out D_Bus.Arguments.Containers.Variant_Type;
+      Internal : Boolean := False)
    is
       use D_Bus.Types;
    begin
       Assert_Valid (O);
 
-      if not O.Properties.Contains (Iface) then
-         raise D_Bus_Error with
-            "Object " & To_String (O.Node) &
-            " contains no properties for interface " & Iface;
+      --  Ensure property exists and is readable
+      if O.Properties.Contains (Iface)
+         and then O.Properties (Iface).Contains (Name)
+      then
+         --  If being called locally, bypass access check
+         if not Internal and then O.Properties (Iface) (Name).PAccess = Write
+         then
+            raise Property_Write_Only with
+               "Property " & Iface & "." & Name & " on " & To_String (O.Node) &
+               " is not readable";
+         end if;
+      else
+         Raise_Unknown_Property (O, Iface, Name);
       end if;
 
-      if not O.Properties (Iface).Contains (Name) then
-         raise D_Bus_Error with
-            "Object" & To_String (O.Node) &
-            " contains no properties for interface " & Iface &
-            " named " & Name;
-      end if;
-
-      Value := O.Properties.Element (Iface) (Name);
+      Value := O.Properties.Element (Iface) (Name).Value;
    end Get_Property;
-
 
    ------------------------
    -- Get_All_Properties --
@@ -400,16 +536,20 @@ package body D_Bus.Support.Server is
       Assert_Valid (O);
 
       --  Handle the case where no properties are defined on Iface
+      Properties.Set_Signature ("{sv}");
       if not O.Properties.Contains (Iface) then
-         Properties.Set_Signature ("{sv}");
          return;
       end if;
 
       --  Add each property to the list
       for Cursor in O.Properties (Iface).Iterate loop
-         Dict_Entry := D_Bus.Arguments.Containers.Create
-           (+Name_Value_Maps.Key (Cursor),
-            O.Properties (Iface) (Cursor));
+         --  Access check
+         if O.Properties (Iface) (Cursor).PAccess in Read | Readwrite
+         then
+            Dict_Entry := D_Bus.Arguments.Containers.Create
+              (+Name_Value_Maps.Key (Cursor),
+               O.Properties (Iface) (Cursor).Value);
+         end if;
 
          Properties.Append (Dict_Entry);
       end loop;

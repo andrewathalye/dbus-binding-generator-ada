@@ -1,14 +1,11 @@
 with Codegen.Output.Subprograms; use Codegen.Output.Subprograms;
 use Codegen.Output;
-
-with Codegen.Binding; use Codegen.Binding;
+with Codegen.Types;
 
 with Shared;        use Shared;
 with Type_Checking; use Type_Checking;
 
 package body Codegen.Client.Iface is
-   Properties_Package : constant String := "org_freedesktop_DBus_Properties";
-
    ----------------
    -- Print_Spec --
    ----------------
@@ -40,27 +37,14 @@ package body Codegen.Client.Iface is
       With_Entity ("D_Bus.Generated_Types");
       Use_Entity ("D_Bus.Generated_Types");
       --  <>
-
-      if not Pkg.Properties.Is_Empty then
-         With_Entity (Properties_Package);
-      end if;
-
       New_Line;
 
       --  Package Spec
       --!pp off
       Start_Package (+Pkg.Name);
-         --  The interface type changes if properties are present
-         if Pkg.Properties.Is_Empty then
-            Declare_Type
-              ("Child_Interface",
-               "limited interface and D_Bus.Support.Client.Client_Interface");
-         else
-            Declare_Type
-              ("Child_Interface",
-               "limited interface and " &
-               Properties_Package & ".Child_Interface");
-         end if;
+         Declare_Type
+           ("Child_Interface",
+            "limited interface and D_Bus.Support.Client.Client_Interface");
 
          if not Pkg.Methods.Is_Empty then
             Large_Comment ("Methods");
@@ -100,11 +84,8 @@ package body Codegen.Client.Iface is
    ----------------
    -- Print_Body --
    ----------------
-   procedure Print_Body
-     (Types : Codegen.Types.Ada_Type_Declaration_Map; Pkg : Ada_Package_Type);
-   procedure Print_Body
-     (Types : Codegen.Types.Ada_Type_Declaration_Map; Pkg : Ada_Package_Type)
-   is
+   procedure Print_Body (Pkg : Ada_Package_Type);
+   procedure Print_Body (Pkg : Ada_Package_Type) is
       use type Parsing.DBus_Direction;
    begin
       --  Preamble
@@ -149,8 +130,7 @@ package body Codegen.Client.Iface is
                      end;
                      Begin_Code;
                      begin
-                        Bind_To_DBus
-                          (Types, A.Type_Code, +A.Name, "Root_Object");
+                        Call ("Bind_To_DBus (" & (+A.Name) & ", Root_Object)");
                         Call ("Request_Args.Append (Root_Object)");
                      end;
                      End_Code;
@@ -163,17 +143,23 @@ package body Codegen.Client.Iface is
                   "O.Call_Blocking (Iface, """ & (+M.Name) &
                   """, Request_Args)");
 
+               --  Check the reply signature
+               Call
+                 ("D_Bus.Support.Client.Check_Signature (Reply_Args, """ &
+                  Codegen.Types.Calculate_Reply_Signature (M.Arguments) &
+                  """)");
+
                --  Bind each out argument
                declare
                   Index : Positive := 1;
                begin
                   for A of M.Arguments loop
                      if A.Direction = Parsing.DOut then
-                        Codegen.Binding.Bind_To_Ada
-                          (Types     => Types, Type_Code => A.Type_Code,
-                           DBus_Name =>
-                             "Reply_Args.Get_Element (" & Index'Image & ")",
-                           Ada_Name  => +A.Name);
+                        Call
+                          ("Bind_To_Ada (" &
+                           Get_Library_DBus_Type (+A.Type_Code) &
+                           " (Reply_Args.Get_Element (" &
+                           Index'Image & ")), " & (+A.Name) & ")");
 
                         Index := Index + 1;
                      end if;
@@ -209,15 +195,22 @@ package body Codegen.Client.Iface is
                Call ("O.Await_Signal (Msg, Iface, """ & (+S.Name) & """)");
                Assign ("Args", "D_Bus.Messages.Get_Arguments (Msg)");
 
+               --  Check the signature
+               Call
+                 ("D_Bus.Support.Client.Check_Signature (Args, """ &
+                  Codegen.Types.Calculate_Reply_Signature (S.Arguments) &
+                  """)");
+
                --  Bind arguments
                declare
                   Index : Positive := 1;
                begin
                   for A of S.Arguments loop
-                     Bind_To_Ada
-                       (Types     => Types, Type_Code => A.Type_Code,
-                        DBus_Name => "Args.Get_Element (" & Index'Image & ")",
-                        Ada_Name  => +A.Name);
+                     Call
+                       ("Bind_To_Ada (" &
+                        Get_Library_DBus_Type (+A.Type_Code) &
+                        " (Args.Get_Element (" & Index'Image & ")), " &
+                        (+A.Name) & ")");
                      Index := Index + 1;
                   end loop;
                end;
@@ -244,19 +237,21 @@ package body Codegen.Client.Iface is
                   end;
                   Begin_Code;
                   begin
-                     --  Get the property via a direct D_Bus call
+                     --  Get the property via an efficient wrapper
                      Call
-                       (Properties_Package & ".Child_Interface'Class (O)" &
-                        ".Get (To_Unbounded_String (Iface)," &
-                        " To_Unbounded_String (""" & (+P.Name) & """)," &
-                        " Variant)");
+                       ("O.Get_Property (Iface, """ & (+P.Name) &
+                        """, Variant)");
 
+                     --  Check that the property was of the right type
+                     Call
+                       ("D_Bus.Support.Client.Check_Signature" &
+                        " (Variant.Get_Argument, """ & (+P.Type_Code) & """)");
+
+                     --  Bind to Ada
                      Assign
                        ("Property", DBus_Type & " (Variant.Get_Argument)");
 
-                     Codegen.Binding.Bind_To_Ada
-                       (Types     => Types, Type_Code => P.Type_Code,
-                        DBus_Name => "Property", Ada_Name => "Property_Ada");
+                     Call ("Bind_To_Ada (Property, Property_Ada)");
                      Return_Entity ("Property_Ada");
                   end;
                   End_Procedure (Property_Read_Name (P));
@@ -275,19 +270,15 @@ package body Codegen.Client.Iface is
                end;
                Begin_Code;
                begin
-                  Codegen.Binding.Bind_To_DBus
-                    (Types    => Types, Type_Code => P.Type_Code,
-                     Ada_Name => "Value", DBus_Name => "Property");
+                  Call ("Bind_To_DBus (Value, Property)");
 
                   Assign
                     ("Variant",
                      "D_Bus.Arguments.Containers.Create (Property)");
 
-                  --  Set the property (direct D_Bus call)
+                  --  Set the property (via efficient wrapper)
                   Call
-                    (Properties_Package & ".Child_Interface'Class (O)" &
-                     ".Set (To_Unbounded_String (Iface), To_Unbounded_String" &
-                     " (""" & (+P.Name) & """), Variant)");
+                    ("O.Set_Property (Iface, """ & (+P.Name) & """, Variant)");
                end;
                End_Procedure (Property_Write_Name (P));
             end if;
@@ -296,11 +287,9 @@ package body Codegen.Client.Iface is
       End_Package (+Pkg.Name);
    end Print_Body;
 
-   procedure Print
-     (Types : Codegen.Types.Ada_Type_Declaration_Map; Pkg : Ada_Package_Type)
-   is
+   procedure Print (Pkg : Ada_Package_Type) is
    begin
       Print_Spec (Pkg);
-      Print_Body (Types, Pkg);
+      Print_Body (Pkg);
    end Print;
 end Codegen.Client.Iface;

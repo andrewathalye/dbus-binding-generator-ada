@@ -56,6 +56,11 @@ package body Codegen.Output is
       Put_Line (File, "use type " & T & ";");
    end Use_Type;
 
+   procedure Use_All_Type (T : String) is
+   begin
+      Put_Line (File, "use all type " & T & ";");
+   end Use_All_Type;
+
    procedure Declare_Entity
      (Entity : String; EType : String; Value : String := "")
    is
@@ -96,13 +101,22 @@ package body Codegen.Output is
 
    procedure Raise_Exception (Name : String; Expression : String := "") is
    begin
-      Put_Line (File, "raise " & Name & " with " & Expression & ";");
+      if Expression'Length = 0 then
+         Put_Line (File, "raise " & Name & ";");
+      else
+         Put_Line (File, "raise " & Name & " with " & Expression & ";");
+      end if;
    end Raise_Exception;
 
    procedure Declare_Procedure (Signature : String) is
    begin
       Put_Line (File, "procedure " & Signature & ";");
    end Declare_Procedure;
+
+   procedure Declare_Abstract_Procedure (Signature : String) is
+   begin
+      Put_Line (File, "procedure " & Signature & " is abstract;");
+   end Declare_Abstract_Procedure;
 
    procedure Declare_Null_Procedure (Signature : String) is
    begin
@@ -207,6 +221,11 @@ package body Codegen.Output is
    begin
       Put_Line (File, "end record;");
    end End_Record;
+
+   procedure Return_Null is
+   begin
+      Put_Line (File, "return;");
+   end Return_Null;
 
    procedure Return_Entity (Name : String) is
    begin

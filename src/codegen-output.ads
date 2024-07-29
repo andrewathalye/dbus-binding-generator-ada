@@ -22,12 +22,14 @@ package Codegen.Output is
    --  Subprograms
    --  `Signature` means "<Name> (<Parameters>) [return <Type>]"
    procedure Declare_Procedure (Signature : String);
+   procedure Declare_Abstract_Procedure (Signature : String);
    procedure Declare_Null_Procedure (Signature : String);
    procedure Declare_Function (Signature : String);
    procedure Start_Procedure (Signature : String);
    procedure Start_Function (Signature : String);
    procedure End_Procedure (Name : String);
    procedure End_Function (Name : String) renames End_Procedure;
+   procedure Return_Null;
    procedure Return_Entity (Name : String);
 
    --  Packages
@@ -41,6 +43,7 @@ package Codegen.Output is
    procedure Renames_Entity (L, T, R : String);
    procedure Use_Entity (Entity : String);
    procedure Use_Type (T : String);
+   procedure Use_All_Type (T : String);
    procedure Declare_Entity
      (Entity : String; EType : String; Value : String := "");
    procedure With_Entity (Entity : String);

@@ -4,9 +4,25 @@ private with Ada.Strings.Hash;
 private with Ada.Containers.Indefinite_Hashed_Maps;
 
 with D_Bus.Messages;
-with D_Bus.Arguments;
+with D_Bus.Arguments.Containers;
 
 package D_Bus.Support.Client is
+   ----------
+   -- Base --
+   ----------
+   Invalid_Signature : exception;
+
+   procedure Check_Signature
+     (Arguments : D_Bus.Arguments.Argument_List_Type;
+      Signature : String);
+   --  Raise `Invalid_Signature` if the signature of `Arguments` is
+   --  not equal to `Signature`
+
+   procedure Check_Signature
+    (Argument : D_Bus.Arguments.Argument_Type'Class;
+     Signature : String);
+   --  The same, but for a single argument.
+
    ------------------------------------
    -- Object-Oriented Client Support --
    ------------------------------------
@@ -16,6 +32,15 @@ package D_Bus.Support.Client is
    --  to implement a new D_Bus interface. In any other case,
    --  extend `Client_Object` with the list of interfaces that
    --  object implements.
+
+   -------------
+   -- Methods --
+   -------------
+   function Call_Blocking
+     (O    : Client_Interface; Iface : String; Method : String;
+      Args : D_Bus.Arguments.Argument_List_Type)
+      return D_Bus.Arguments.Argument_List_Type is abstract;
+   --  Same as D_Bus.Connection.Call_Blocking but object-oriented
 
    -------------
    -- Signals --
@@ -34,14 +59,24 @@ package D_Bus.Support.Client is
    --  Return the message for a registered signal with
    --  interface `Iface` and name `Name`.
 
-   -------------
-   -- Methods --
-   -------------
-   function Call_Blocking
-     (O    : Client_Interface; Iface : String; Method : String;
-      Args : D_Bus.Arguments.Argument_List_Type)
-      return D_Bus.Arguments.Argument_List_Type is abstract;
-   --  Same as D_Bus.Connection.Call_Blocking but object-oriented
+   ----------------
+   -- Properties --
+   ----------------
+   procedure Set_Property
+     (O : Client_Interface;
+      Iface : String;
+      Name : String;
+      Value : D_Bus.Arguments.Containers.Variant_Type) is abstract;
+   --  Set a property with semantics identical to the
+   --  standard `org.freedesktop.DBus.Properties.Set`
+
+   procedure Get_Property
+     (O : Client_Interface;
+      Iface : String;
+      Name : String;
+      Value : out D_Bus.Arguments.Containers.Variant_Type) is abstract;
+   --  Get a property with semantics identical to the
+   --  standard `org.freedesktop.DBus.Properties.Get`
 
    ----------------------------------------
    -- Implementation for `Client_Object` --
@@ -63,6 +98,18 @@ package D_Bus.Support.Client is
      (O    : Client_Object; Iface : String; Method : String;
       Args : D_Bus.Arguments.Argument_List_Type)
       return D_Bus.Arguments.Argument_List_Type;
+
+   procedure Set_Property
+     (O : Client_Object;
+      Iface : String;
+      Name : String;
+      Value : D_Bus.Arguments.Containers.Variant_Type);
+
+   procedure Get_Property
+     (O : Client_Object;
+      Iface : String;
+      Name : String;
+      Value : out D_Bus.Arguments.Containers.Variant_Type);
 
    ----------------------------------
    -- Constructors and Destructors --

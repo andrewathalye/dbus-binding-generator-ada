@@ -1,0 +1,18 @@
+with "dbusada";
+with "../../supportlib/dbusada_extra";
+
+project Examples_Client is
+   for Source_Dirs use ("../src/", "../generated/client");
+
+   for Object_Dir use "../obj/client/";
+   for Exec_Dir use "../bin";
+   for Main use ("mpris_client.adb");
+
+   package Compiler is
+      for Default_Switches ("Ada") use ("-g", "-Og", "-gnata", "-gnatVa", "-gnatwa", "-gnatwe", "-gnatyy");
+   end Compiler;
+
+   package Binder is
+      for Default_Switches ("Ada") use ("-Es");
+   end Binder;
+end Examples_Client;

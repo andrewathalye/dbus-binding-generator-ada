@@ -24,6 +24,20 @@ package D_Bus.Support.Server is
    --  loop. This is the recommended (and supported) way to interact with
    --  libdbus.
 
+   procedure Run_Iteration;
+   --  Run a blocking iteration of the Glib main loop.
+
+   procedure Check_Signature
+     (Arguments : D_Bus.Arguments.Argument_List_Type;
+      Signature : String);
+   --  Raise `Invalid_Signature` if the signature of `Arguments` is
+   --  not equal to `Signature`
+
+   procedure Check_Signature
+    (Argument : D_Bus.Arguments.Argument_Type'Class;
+     Signature : String);
+   --  The same, but for a single argument.
+
    ------------------------------------
    -- Object-Oriented Server Support --
    ------------------------------------
@@ -47,21 +61,31 @@ package D_Bus.Support.Server is
    ----------------
    -- Properties --
    ----------------
+   type Access_Type is (Unchanged, Read, Write, Readwrite);
+
    procedure Set_Property
      (O : in out Server_Interface;
       Iface : String;
       Name : String;
-      Value : D_Bus.Arguments.Containers.Variant_Type) is abstract;
+      Value : D_Bus.Arguments.Containers.Variant_Type;
+      PAccess : Access_Type := Unchanged) is abstract;
    --  Set a property with semantics identical to the
    --  standard `org.freedesktop.DBus.Properties.Set`
+   --
+   --  If PAccess is set to anything other than `Unchanged`,
+   --  access checks will be disabled and the property will
+   --  be created if it did not already exist.
 
    procedure Get_Property
      (O : Server_Interface;
       Iface : String;
       Name : String;
-      Value : out D_Bus.Arguments.Containers.Variant_Type) is abstract;
+      Value : out D_Bus.Arguments.Containers.Variant_Type;
+      Internal : Boolean := False) is abstract;
    --  Get a property with semantics identical to the
    --  standard `org.freedesktop.DBus.Properties.Get`
+   --
+   --  If `Internal` is set, access checks will be suppressed.
 
    procedure Get_All_Properties
      (O : Server_Interface;
@@ -83,8 +107,20 @@ package D_Bus.Support.Server is
    -- Object Registration --
    -------------------------
    Unknown_Method : exception;
+   --  Message will be discarded
+   Unknown_Property : exception;
+   --  Message will be relayed to caller
+   Invalid_Signature : exception;
+   --  Message will be relayed to caller
+   Property_Read_Only : exception;
+   --  Message will be relayed to caller
+   Property_Write_Only : exception;
+   --  Message will be relayed to caller
+
    --  The above are exceptions which a handler should raise in the
    --  event of a failure when processing a message.
+   --
+   --  They correspond to the standard D_Bus error names.
 
    type Handler_Access is access procedure
      (O : in out Server_Interface'Class;
@@ -122,13 +158,15 @@ package D_Bus.Support.Server is
      (O : in out Server_Object;
       Iface : String;
       Name : String;
-      Value : D_Bus.Arguments.Containers.Variant_Type);
+      Value : D_Bus.Arguments.Containers.Variant_Type;
+      PAccess : Access_Type := Unchanged);
 
    procedure Get_Property
      (O : Server_Object;
       Iface : String;
       Name : String;
-      Value : out D_Bus.Arguments.Containers.Variant_Type);
+      Value : out D_Bus.Arguments.Containers.Variant_Type;
+      Internal : Boolean := False);
 
    procedure Get_All_Properties
      (O : Server_Object;
@@ -146,12 +184,17 @@ private
    -------------------
    -- Server_Object --
    -------------------
-   use type D_Bus.Arguments.Containers.Variant_Type;
+   subtype Valid_Access_Type is Access_Type range Read .. Readwrite;
+
+   type Property_Type is record
+      PAccess : Valid_Access_Type;
+      Value : D_Bus.Arguments.Containers.Variant_Type;
+   end record;
 
    --  "Name" => "Value"
    package Name_Value_Maps is new Ada.Containers.Indefinite_Hashed_Maps
      (Key_Type        => String,
-      Element_Type    => D_Bus.Arguments.Containers.Variant_Type,
+      Element_Type    => Property_Type,
       Hash            => Ada.Strings.Hash,
       Equivalent_Keys => "=");
    use type Name_Value_Maps.Map;

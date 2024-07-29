@@ -2,18 +2,110 @@ pragma Ada_2012;
 
 with Codegen.Output;             use Codegen.Output;
 with Codegen.Output.Subprograms; use Codegen.Output.Subprograms;
-with Codegen.Binding;            use Codegen.Binding;
 
 with Type_Checking; use Type_Checking;
+with Parsing;
 
 with Shared; use Shared;
 
 package body Codegen.Server.Iface is
+   ----------------------
+   -- Print_Properties --
+   ----------------------
+   procedure Print_Properties (Pkg : Ada_Package_Type);
+   procedure Print_Properties (Pkg : Ada_Package_Type) is
+   begin
+      --  Spec
+      Use_Pragma ("Ada_2005");
+      New_Line;
+
+      With_Entity ("Ada.Strings.Unbounded");
+      --  `Unbounded_String`
+      With_Entity ("D_Bus.Arguments.Containers");
+      --  `Variant_Type`
+      With_Entity ("D_Bus.Support.Server");
+      --  `Server_Interface`
+      With_Entity ("D_Bus.Generated_Types");
+      Use_Entity ("D_Bus.Generated_Types");
+      --  All types
+      New_Line;
+
+      Start_Package (+Pkg.Name);
+      begin
+         Declare_Type
+           ("Child_Interface",
+            "limited interface and D_Bus.Support.Server.Server_Interface");
+         New_Line;
+
+         Large_Comment ("Methods");
+         for M of Pkg.Methods loop
+            Declare_Procedure (Method_Signature (M));
+         end loop;
+
+         --  Note: we don’t support manually emitting
+         --  signals, including PropertiesChanged
+      end;
+      End_Package (+Pkg.Name);
+
+      --  Body
+      Use_Pragma ("Ada_2005");
+      Use_Pragma ("Style_Checks (Off)");
+
+      With_Entity ("Ada.Strings.Unbounded");
+      Use_Entity ("Ada.Strings.Unbounded");
+
+      Start_Package_Body (+Pkg.Name);
+      begin
+         for M of Pkg.Methods loop
+            if +M.Name = "Get" then
+               Start_Procedure (Method_Signature (M));
+               Begin_Code;
+               begin
+                  Call
+                    ("O.Get_Property (To_String (interface_name)," &
+                     " To_String (property_name), value)");
+               end;
+               End_Procedure (Method_Name (M));
+            elsif +M.Name = "GetAll" then
+               Start_Procedure (Method_Signature (M));
+               begin
+                  Declare_Entity
+                    ("DBus_Dict", "D_Bus.Arguments.Containers.Array_Type");
+               end;
+               Begin_Code;
+               begin
+                  Call
+                    ("O.Get_All_Properties (To_String (interface_name)," &
+                     " DBus_Dict)");
+
+                  Call ("Bind_To_Ada (DBus_Dict, properties)");
+               end;
+               End_Procedure (Method_Name (M));
+            elsif +M.Name = "Set" then
+               Start_Procedure (Method_Signature (M));
+               Begin_Code;
+               begin
+                  Call
+                    ("O.Set_Property (To_String (interface_name)," &
+                     " To_String (property_name), value)");
+               end;
+               End_Procedure (Method_Name (M));
+            else
+               raise Program_Error
+                 with "Builtin interface had unexpected method name " &
+                 (+M.Name);
+            end if;
+         end loop;
+      end;
+      End_Package (+Pkg.Name);
+   end Print_Properties;
+
    ----------------
    -- Print_Spec --
    ----------------
    procedure Print_Spec (Pkg : Ada_Package_Type);
    procedure Print_Spec (Pkg : Ada_Package_Type) is
+      use type Parsing.DBus_Direction;
    begin
       --  Preamble
       Use_Pragma ("Ada_2005");
@@ -47,24 +139,50 @@ package body Codegen.Server.Iface is
       --  All generated types
       New_Line;
 
+      if not Pkg.Properties.Is_Empty then
+         With_Entity ("org_freedesktop_DBus_Properties");
+      end if;
+
       Start_Package (+Pkg.Name);
       begin
          --  Interface Type
-         --  Note: This _should_ extend `org.freedesktop.DBus.Properties` but
-         --  we choose not to to reduce the size of the closure. This is
-         --  most likely irrelevant as Server_Interface provides the same
-         --  methods as `org.freedesktop.DBus.Properties`
-         Declare_Type
-           ("Child_Interface",
-            "limited interface and D_Bus.Support.Server.Server_Interface");
+         if not Pkg.Properties.Is_Empty then
+            Declare_Type
+              ("Child_Interface",
+               "limited interface and" &
+               " org_freedesktop_DBus_Properties.Child_Interface");
+         else
+            Declare_Type
+              ("Child_Interface",
+               "limited interface and D_Bus.Support.Server.Server_Interface");
+         end if;
          New_Line;
 
          --  Methods
          if not Pkg.Methods.Is_Empty then
             Large_Comment ("Methods");
          end if;
+
+         --  If `M` contains any out parameters,
+         --  it is declared `abstract`, since not returning a value
+         --  is erroneous. It is otherwise declared `null`.
          for M of Pkg.Methods loop
-            Declare_Procedure (Method_Signature (M));
+            declare
+               Contains_Out_Parameters : Boolean := False;
+            begin
+               for A of M.Arguments loop
+                  if A.Direction = Parsing.DOut then
+                     Contains_Out_Parameters := True;
+                  end if;
+               end loop;
+
+               if Contains_Out_Parameters then
+                  Declare_Abstract_Procedure (Unbound_Method_Signature (M));
+               else
+                  Declare_Null_Procedure (Unbound_Method_Signature (M));
+               end if;
+            end;
+
             New_Line;
          end loop;
 
@@ -94,12 +212,15 @@ package body Codegen.Server.Iface is
    ----------------
    -- Print_Body --
    ----------------
-   procedure Print_Body
-     (Types : Codegen.Types.Ada_Type_Declaration_Map; Pkg : Ada_Package_Type);
-   procedure Print_Body
-     (Types : Codegen.Types.Ada_Type_Declaration_Map; Pkg : Ada_Package_Type)
-   is
+   procedure Print_Body (Pkg : Ada_Package_Type);
+   procedure Print_Body (Pkg : Ada_Package_Type) is
    begin
+      --  The interface requires no body if it has no properties
+      --  or signals
+      if Pkg.Properties.Is_Empty and Pkg.Signals.Is_Empty then
+         return;
+      end if;
+
       --  Preamble
       Use_Pragma ("Ada_2012");
       Use_Pragma ("Style_Checks (Off)");
@@ -116,14 +237,6 @@ package body Codegen.Server.Iface is
       begin
          Declare_Entity
            ("Iface", "constant String", """" & (+Pkg.Real_Name) & """");
-
-         --  Methods
-         if not Pkg.Methods.Is_Empty then
-            Large_Comment ("Methods");
-         end if;
-         for M of Pkg.Methods loop
-            Declare_Null_Procedure (Method_Signature (M));
-         end loop;
 
          --  Signals
          if not Pkg.Signals.Is_Empty then
@@ -145,10 +258,7 @@ package body Codegen.Server.Iface is
                   end;
                   Begin_Code;
                   begin
-                     Bind_To_DBus
-                       (Types    => Types, Type_Code => A.Type_Code,
-                        Ada_Name => +A.Name, DBus_Name => "Argument");
-
+                     Call ("Bind_To_DBus (" & (+A.Name) & ", Argument)");
                      Call ("D_Bus.Arguments.Append (Args, Argument)");
                   end;
                   End_Code;
@@ -169,21 +279,23 @@ package body Codegen.Server.Iface is
             --  <PropertyName> (...) return <Type>
             Start_Function (Property_Read_Signature (P));
             begin
+               Use_Entity ("Ada.Strings.Unbounded");
+
                Declare_Entity
                  ("Value", "D_Bus.Arguments.Containers.Variant_Type");
                Declare_Entity ("Ada_Value", Get_Ada_Type (+P.Type_Code));
             end;
             Begin_Code;
             begin
-               --  Get the raw property Variant
-               Call ("O.Get_Property (Iface, """ & (+P.Name) & """, Value)");
+               --  Get the property via a more efficient method
+               --  This also bypasses access checks
+               Call
+                 ("O.Get_Property (Iface, """ & (+P.Name) &
+                  """, Value, Internal => True)");
 
-               Bind_To_Ada
-                 (Types     => Types, Type_Code => P.Type_Code,
-                  DBus_Name =>
-                    Get_Library_DBus_Type (+P.Type_Code) &
-                    " (Value.Get_Argument)",
-                  Ada_Name  => "Ada_Value");
+               Call
+                 ("Bind_To_Ada (" & Get_Library_DBus_Type (+P.Type_Code) &
+                  " (Value.Get_Argument), Ada_Value)");
 
                Return_Entity ("Ada_Value");
             end;
@@ -192,20 +304,28 @@ package body Codegen.Server.Iface is
             --  Set_<PropertyName> (...Value : <Type>)
             Start_Procedure (Property_Write_Signature (P));
             begin
+               Use_Entity ("Ada.Strings.Unbounded");
+               Use_All_Type ("D_Bus.Support.Server.Access_Type");
+
                Declare_Entity
-                 ("DBus_Value",
-                  Get_Library_DBus_Type (+P.Type_Code));
+                 ("DBus_Value", Get_Library_DBus_Type (+P.Type_Code));
             end;
             Begin_Code;
             begin
-               Bind_To_DBus
-                 (Types    => Types, Type_Code => P.Type_Code,
-                  Ada_Name => "Value", DBus_Name => "DBus_Value");
+               Call ("Bind_To_DBus (Value, DBus_Value)");
 
-               --  Assign the property after creating a Variant
+               --  Assign the property via a more efficient method
+               --  This also bypasses access checks
+               --!pp off
                Call
                  ("O.Set_Property (Iface, """ & (+P.Name) &
-                  """, D_Bus.Arguments.Containers.Create (DBus_Value))");
+                  """, D_Bus.Arguments.Containers.Create (DBus_Value)," &
+                  " PAccess => " &
+                     (case P.PAccess is
+                        when Parsing.Read => "Read",
+                        when Parsing.Write => "Write",
+                        when Parsing.Readwrite => "Readwrite") & ")");
+               --!pp on
             end;
             End_Procedure (Property_Write_Name (P));
          end loop;
@@ -216,11 +336,15 @@ package body Codegen.Server.Iface is
    -----------
    -- Print --
    -----------
-   procedure Print
-     (Types : Codegen.Types.Ada_Type_Declaration_Map; Pkg : Ada_Package_Type)
-   is
+   procedure Print (Pkg : Ada_Package_Type) is
    begin
-      Print_Spec (Pkg);
-      Print_Body (Types, Pkg);
+      --  Print the builtin Properties interface package if
+      --  necessary.
+      if +Pkg.Real_Name = "org.freedesktop.DBus.Properties" then
+         Print_Properties (Pkg);
+      else
+         Print_Spec (Pkg);
+         Print_Body (Pkg);
+      end if;
    end Print;
 end Codegen.Server.Iface;

@@ -1,6 +1,9 @@
 pragma Ada_2005;
 
 with Ada.Strings.Unbounded;
+
+with D_Bus.Arguments;
+
 private with Ada.Unchecked_Conversion;
 
 private with D_Bus.Connection;
@@ -31,6 +34,13 @@ package D_Bus.Support is
    subtype Unbounded_Signature is Ada.Strings.Unbounded.Unbounded_String;
    Null_Unbounded_Signature : constant Unbounded_Signature;
    --  The Ada type used to represent a D_Bus Signature
+
+   ------------------------
+   -- Signature Checking --
+   ------------------------
+   function Get_Signature
+     (Arguments : D_Bus.Arguments.Argument_List_Type) return String;
+   --  Return the signature of `Arguments`
 
    ---------------------------
    -- Object-Oriented D_Bus --

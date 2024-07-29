@@ -1,4 +1,11 @@
 package Codegen.Output.Subprograms is
+   ----------------
+   -- Interfaces --
+   ----------------
+   --  Serverside
+   function Interface_Handler_Name (Pkg : Ada_Package_Type) return String;
+   function Interface_Handler_Signature (Pkg : Ada_Package_Type) return String;
+
    -------------
    -- Methods --
    -------------
@@ -6,12 +13,13 @@ package Codegen.Output.Subprograms is
    function Method_Signature (M : Parsing.Method_Type) return String;
 
    --  Serverside
-   function Method_Dispatcher_Name
+   function Unbound_Method_Signature (M : Parsing.Method_Type) return String;
+   --  The method signature of a null or abstract method.
+
+   function Method_Call_Expression (M : Parsing.Method_Type) return String;
+   function Method_Handler_Name (M : Parsing.Method_Type) return String;
+   function Method_Handler_Signature
      (Pkg : Ada_Package_Type; M : Parsing.Method_Type) return String;
-   function Method_Dispatcher_Signature
-     (Pkg : Ada_Package_Type; M : Parsing.Method_Type) return String;
-   function Method_Call_Expression
-     (M : Parsing.Method_Type) return String;
 
    -------------
    -- Signals --
@@ -39,4 +47,13 @@ package Codegen.Output.Subprograms is
 
    function Property_Write_Name (P : Parsing.Property_Type) return String;
    function Property_Write_Signature (P : Parsing.Property_Type) return String;
+
+   -------------
+   -- Binding --
+   -------------
+   function Bind_To_Ada_Name return String;
+   function Bind_To_Ada_Signature (TD : Ada_Type_Declaration) return String;
+
+   function Bind_To_DBus_Name return String;
+   function Bind_To_DBus_Signature (TD : Ada_Type_Declaration) return String;
 end Codegen.Output.Subprograms;

@@ -28,7 +28,7 @@ with Codegen.Types;
 --  Client / Server Codegen
 with Codegen.Client.Iface;
 with Codegen.Server.Iface;
-with Codegen.Server.Dispatcher;
+with Codegen.Server.Objects;
 
 --  Utils
 with Shared; use Shared;
@@ -250,14 +250,14 @@ begin
       case Mode is
          when Client =>
             for Pkg of Pkgs loop
-               Codegen.Client.Iface.Print (Types, Pkg);
+               Codegen.Client.Iface.Print (Pkg);
             end loop;
          when Server =>
             for Pkg of Pkgs loop
-               Codegen.Server.Iface.Print (Types, Pkg);
+               Codegen.Server.Iface.Print (Pkg);
             end loop;
 
-            Codegen.Server.Dispatcher.Print (Types, Pkgs);
+            Codegen.Server.Objects.Print (Pkgs);
       end case;
       Put_Debug ("Generated client/server code");
    end;

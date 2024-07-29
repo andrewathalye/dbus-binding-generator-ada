@@ -12,10 +12,10 @@ with org_mpris_MediaPlayer2_Playlists;
 with org_mpris_MediaPlayer2_TrackList;
 
 --  Support Code
-with D_Bus.Support.Client;         use D_Bus.Support.Client;
+with D_Bus.Support.Client;  use D_Bus.Support.Client;
 with D_Bus.Generated_Types; use D_Bus.Generated_Types;
 
-procedure MPRIS is
+procedure MPRIS_Client is
    --  D_Bus Object Types
    type D_Bus_Object is
    new Client_Object and org_freedesktop_DBus.Child_Interface with null record;
@@ -74,4 +74,4 @@ begin
    --  Destructors
    Player.Destroy;
    Bus.Destroy;
-end MPRIS;
+end MPRIS_Client;

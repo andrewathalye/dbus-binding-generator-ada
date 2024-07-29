@@ -1,10 +1,12 @@
 with "dbusada";
 
-project Test is
-   for Source_Dirs use ("src/", "generated/");
+library project DBusAda_Extra is
+   for Source_Dirs use ("src/");
    for Object_Dir use "obj/";
-   for Exec_Dir use "bin";
-   for Main use ("mpris_server.adb");
+   for Library_Dir use "lib/";
+
+   for Library_Kind use "relocatable";
+   for Library_Name use "dbusada_extra";
 
    package Compiler is
       for Default_Switches ("Ada") use ("-g", "-Og", "-gnata", "-gnatVa", "-gnatwa", "-gnatwe", "-gnatyy");
@@ -13,4 +15,4 @@ project Test is
    package Binder is
       for Default_Switches ("Ada") use ("-Es");
    end Binder;
-end Test;
+end DBusAda_Extra;

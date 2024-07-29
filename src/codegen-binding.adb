@@ -87,14 +87,15 @@ package body Codegen.Binding is
                for SM of TD.Struct_Members loop
                   Declare_Code;
                      Declare_Entity
-                       ("Struct_Obj", Get_Library_DBus_Type (+SM.Type_Code));
+                       ("Struct_Obj_" & Name,
+                        Get_Library_DBus_Type (+SM.Type_Code));
                   Begin_Code;
                      Bind_To_DBus_Inner
                        (TD        => Types (SM.Type_Code),
                         Ada_Name  => Ada_Name & "." & (+SM.Name),
-                        DBus_Name => "Struct_Obj");
+                        DBus_Name => "Struct_Obj_" & Name);
 
-                     Call (DBus_Name & ".Append (Struct_Obj)");
+                     Call (DBus_Name & ".Append (Struct_Obj_" & Name & ")");
                   End_Code;
                end loop;
                --!pp on

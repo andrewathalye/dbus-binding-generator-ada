@@ -1,0 +1,3 @@
+aggregate project Examples is
+   for Project_Files use ("./gpr/examples_client.gpr", "./gpr/examples_server.gpr");
+end Examples;
