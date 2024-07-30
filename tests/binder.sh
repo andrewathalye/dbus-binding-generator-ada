@@ -12,10 +12,9 @@ cmd() {
 }
 
 cd "$(dirname $0)"
-mkdir binder_testdir
+mkdir -p binder_testdir/data
 cd binder_testdir
 
-mkdir data
 cp ../../data/introspect.xsd data
 
 ################
