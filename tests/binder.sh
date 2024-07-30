@@ -1,4 +1,4 @@
-#!/bin/sh
+CMD="${1:-../../dbus_binding_generator_ada}"
 RESULT=""
 
 die() {
@@ -8,25 +8,19 @@ die() {
 }
 
 cmd() {
-   RESULT="$(./dbus_binding_generator_ada $@ 2>&1)"
+   RESULT="$($CMD $@ 2>&1)"
 }
 
 cd "$(dirname $0)"
-mkdir coverage_build
-cd coverage_build
-
-##########################
-# Produce Coverage Build #
-##########################
-echo Produce Coverage Build
-gprbuild -j0 -P../../dbus_binding_generator_ada -XBUILD_MODE=coverage --relocate-build-tree || die
+mkdir binder_testdir
+cd binder_testdir
 
 mkdir data
 cp ../../data/introspect.xsd data
 
-####################
-# Run Binder Tests #
-####################
+################
+# BINDER TESTS #
+################
 echo No Arguments
 cmd && die
 
@@ -43,24 +37,16 @@ echo Fake File
 cmd -types ./doesnotexist && die
 
 echo Test Specification
-cmd -client ../comprehensive/test.interface.xml || die
-cmd -server ../comprehensive/test.interface.xml || die
-cmd -types ../comprehensive/test.interface.xml || die
+cmd -client ../data/test.interface.xml || die
+cmd -server ../data/test.interface.xml || die
+cmd -types ../data/test.interface.xml || die
 
 echo Erroneous Specifications
-cmd -types ../comprehensive/test.error_complexdictkey.xml && die
-cmd -types ../comprehensive/test.error_schemavalidation.xml && die
+cmd -types ../data/test.error_complexdictkey.xml && die
+cmd -types ../data/test.error_schemavalidation.xml && die
 
 echo Erroneous Schema
-cp ../comprehensive/invalid.xsd data/introspect.xsd
-cmd -types ../comprehensive/test.interface.xml && die
-
-##################
-# Produce Report #
-##################
-echo Produce Report
-RESULT="$(lcov -c -d . -o coverage.run 2>&1)" || die
-RESULT="$(lcov -e coverage.run "$(realpath $PWD/../..)/*" -o coverage.run.filtered)" || die
-RESULT="$(genhtml -o html/ coverage.run.filtered)" || die
+cp ../data/invalid.xsd data/introspect.xsd
+cmd -types ../data/test.interface.xml && die
 
 echo PASS
