@@ -1,50 +1,166 @@
-with Ada.Strings.Unbounded;
+pragma Ada_2012;
 
-with Shared; use Shared;
-with Debug;  use Debug;
-
-package body Type_Checking is
+package body Signatures is
    --------------
    -- Is_Basic --
    --------------
-   function Is_Basic (T : String) return Boolean is
-     (T (T'First) in
-        'y' | 'b' | 'n' | 'q' | 'i' | 'u' | 'x' | 't' | 'd' | 's' | 'o' | 'g'
-        | 'h');
+   function Is_Basic (Sig : Signature) return Boolean is
+     (Sig'Length = 1 and then Sig (Sig'First) in Basic_Type);
 
-   function Is_Stringlike (T : String) return Boolean is
-     (T (T'First) in 's' | 'o' | 'g');
+   -----------------
+   -- Is_Starting --
+   -----------------
+   function Is_Starting (Sig : Signature) return Boolean is
+     (Sig'Length = 1 and then Sig (Sig'First) in Starting_Type);
+
+   -------------------
+   -- Is_Stringlike --
+   -------------------
+   function Is_Stringlike (Sig : Signature) return Boolean is
+     (Sig'Length = 1 and then Sig (Sig'First) in Stringlike_Type);
+
+   -----------------
+   -- Conversions --
+   -----------------
+   function As_Character (SE : Signature_Element) return Character;
+   function As_Character (SE : Signature_Element) return Character is
+   begin
+      case SE is
+         when 'y' =>
+            return 'y';
+         when 'b' =>
+            return 'b';
+         when 'n' =>
+            return 'n';
+         when 'q' =>
+            return 'q';
+         when 'i' =>
+            return 'i';
+         when 'u' =>
+            return 'u';
+         when 'x' =>
+            return 'x';
+         when 't' =>
+            return 't';
+         when 'd' =>
+            return 'd';
+         when 's' =>
+            return 's';
+         when 'o' =>
+            return 'o';
+         when 'g' =>
+            return 'g';
+         when 'h' =>
+            return 'h';
+         when 'v' =>
+            return 'v';
+         when 'a' =>
+            return 'a';
+         when '(' =>
+            return '(';
+         when ')' =>
+            return ')';
+         when '{' =>
+            return '{';
+         when '}' =>
+            return '}';
+      end case;
+   end As_Character;
+
+   function As_Signature_Element (C : Character) return Signature_Element;
+   function As_Signature_Element (C : Character) return Signature_Element is
+   begin
+      case C is
+         when 'y' =>
+            return 'y';
+         when 'b' =>
+            return 'b';
+         when 'n' =>
+            return 'n';
+         when 'q' =>
+            return 'q';
+         when 'i' =>
+            return 'i';
+         when 'u' =>
+            return 'u';
+         when 'x' =>
+            return 'x';
+         when 't' =>
+            return 't';
+         when 'd' =>
+            return 'd';
+         when 's' =>
+            return 's';
+         when 'o' =>
+            return 'o';
+         when 'g' =>
+            return 'g';
+         when 'h' =>
+            return 'h';
+         when 'v' =>
+            return 'v';
+         when 'a' =>
+            return 'a';
+         when '(' =>
+            return '(';
+         when ')' =>
+            return ')';
+         when '{' =>
+            return '{';
+         when '}' =>
+            return '}';
+         when others =>
+            raise Constraint_Error;
+      end case;
+   end As_Signature_Element;
+
+   function As_String (Sig : Signature) return String is
+      Result : String (Sig'Range);
+   begin
+      for I in Sig'Range loop
+         Result (I) := As_Character (Sig (I));
+      end loop;
+
+      return Result;
+   end As_String;
+
+   function As_Signature (Sig : String) return Signature is
+      Result : Signature (Sig'Range);
+   begin
+      for I in Sig'Range loop
+         Result (I) := As_Signature_Element (Sig (I));
+      end loop;
+
+      return Result;
+   end As_Signature;
 
    --  Sanitise a type name to be suitable for Ada type names
    --  Not exported
-   function Sanitise (T : String) return String;
-   function Sanitise (T : String) return String is
-      use Ada.Strings.Unbounded;
-
-      Buf : Unbounded_String;
+   function Sanitise (T : Signature) return String;
+   function Sanitise (T : Signature) return String is
+      Result : String (T'Range);
    begin
-      for C of T loop
-         case C is
-            when 'A' .. 'z' =>
-               Append (Buf, C);
+      for I in T'Range loop
+         case T (I) is
             when '(' | ')' =>
-               Append (Buf, 'r');
+               Result (I) := 'r';
             when '{' | '}' =>
-               Append (Buf, 'e');
+               Result (I) := 'e';
             when others =>
-               raise Program_Error;
+               Result (I) := As_Character (T (I));
          end case;
       end loop;
 
-      return +Buf;
+      return Result;
    end Sanitise;
 
    ------------------
    -- Get_Interior --
    ------------------
-   function Get_Interior (DType : String) return String is
+   function Get_Interior (DType : Signature) return Signature is
+      DType_First : constant Complex_Starting_Type := DType (DType'First);
    begin
-      case DType (DType'First) is
+      case DType_First is
          when 'a' =>
             --  Check for dicts
             case DType (DType'First + 1) is
@@ -55,26 +171,23 @@ package body Type_Checking is
             end case;
          when '(' =>
             return DType (DType'First + 1 .. DType'Last - 1);
-         when others =>
-            return DType;
       end case;
    end Get_Interior;
 
    -----------------------
    -- Get_Complete_Type --
    -----------------------
-   function Get_Complete_Type (T : String; Index : Positive := 1) return String
+   function Get_Complete_Type
+     (T : Signature; Index : Positive := 1) return Signature
    is
-      use Ada.Strings.Unbounded;
-
-      Buf   : Unbounded_String;
       Count : Natural := 0;
 
       --  Return the full length of a complete inner type
+      --  Called only on container types
       --  (as) -> 4
       --  a{tvs} => 6
-      function Inner (T : String) return Positive;
-      function Inner (T : String) return Positive is
+      function Inner (T : Signature) return Positive;
+      function Inner (T : Signature) return Positive is
       begin
          case T (T'First) is
             --  Recursive array handler
@@ -136,14 +249,12 @@ package body Type_Checking is
 
                raise Program_Error with "Invalid dict";
             when others =>
-               raise Program_Error with "Inner called on simple type";
+               raise Program_Error;
          end case;
       end Inner;
 
       I : Natural := T'First;
    begin
-      Put_Debug ("Get_Complete_Type: " & T & "," & Index'Image);
-
       while I <= T'Last loop
          case T (I) is
             --  Complex Container
@@ -155,9 +266,7 @@ package body Type_Checking is
                   Count := Count + 1;
 
                   if Count = Index then
-                     Append (Buf, T (I .. I + Container_Length - 1));
-                     Put_Debug ("Complete_Type: " & (+Buf));
-                     return +Buf;
+                     return T (I .. I + Container_Length - 1);
                   end if;
 
                   I := I + Container_Length - 1;
@@ -172,7 +281,6 @@ package body Type_Checking is
                Count := Count + 1;
 
                if Count = Index then
-                  Put_Debug ("Complete_Type: " & T (I));
                   return (1 => T (I));
                end if;
          end case;
@@ -187,8 +295,8 @@ package body Type_Checking is
    ------------------
    -- Get_Ada_Type --
    ------------------
-   function Get_Ada_Type (T : String) return String is
-      AType_First : constant Character := T (T'First);
+   function Get_Ada_Type (T : Signature) return String is
+      AType_First : constant Starting_Type := T (T'First);
    begin
       case AType_First is
          when 'y' =>
@@ -212,9 +320,9 @@ package body Type_Checking is
          when 's' =>
             return "Ada.Strings.Unbounded.Unbounded_String";
          when 'o' =>
-            return "D_Bus.Support.Unbounded_Object_Path";
+            return "D_Bus.Types.Obj_Path";
          when 'g' =>
-            return "D_Bus.Support.Unbounded_Signature";
+            return "D_Bus.Types.Signature";
          when 'a' =>
             --  Check for dicts
             case T (T'First + 1) is
@@ -229,16 +337,14 @@ package body Type_Checking is
             return "D_Bus.Arguments.Containers.Variant_Type";
          when 'h' =>
             return "GNAT.OS_Lib.File_Descriptor";
-         when others =>
-            raise Program_Error;
       end case;
    end Get_Ada_Type;
 
    ---------------------------
    -- Get_Library_DBus_Type --
    ---------------------------
-   function Get_Library_DBus_Type (T : String) return String is
-      AType_First : constant Character := T (T'First);
+   function Get_Library_DBus_Type (T : Signature) return String is
+      AType_First : constant Starting_Type := T (T'First);
    begin
       case AType_First is
          when 'y' =>
@@ -258,13 +364,13 @@ package body Type_Checking is
          when 't' =>
             return "D_Bus.Arguments.Basic.U_Int64_Type";
          when 'd' =>
-            return "D_Bus.Extra.Double_Type";
+            return "D_Bus.Arguments.Basic.Double_Type";
          when 's' =>
             return "D_Bus.Arguments.Basic.String_Type";
          when 'o' =>
             return "D_Bus.Arguments.Basic.Object_Path_Type";
          when 'g' =>
-            return "D_Bus.Extra.Signature_Type";
+            return "D_Bus.Arguments.Basic.Signature_Type";
          when 'a' =>
             return "D_Bus.Arguments.Containers.Array_Type";
          when '(' =>
@@ -272,22 +378,16 @@ package body Type_Checking is
          when 'v' =>
             return "D_Bus.Arguments.Containers.Variant_Type";
          when 'h' =>
-            return "D_Bus.Extra.File_Descriptor_Type";
-         when others =>
-            raise Program_Error;
+            return "D_Bus.Arguments.Basic.File_Descriptor_Type";
       end case;
    end Get_Library_DBus_Type;
 
    --------------------------
    -- Get_Library_Ada_Type --
    --------------------------
-   function Get_Library_Ada_Type (T : String) return String is
-      AType_First : constant Character := T (T'First);
+   function Get_Library_Ada_Type (T : Signature) return String is
+      AType_First : constant Basic_Type := T (T'First);
    begin
-      if not Is_Basic (T) then
-         raise Program_Error with T & " is not a basic type";
-      end if;
-      --  ONLY for Basic Types
       case AType_First is
          when 'y' =>
             return "D_Bus.Byte";
@@ -306,17 +406,15 @@ package body Type_Checking is
          when 't' =>
             return "D_Bus.Unsigned_64";
          when 'd' =>
-            return "D_Bus.Extra.Double";
+            return "D_Bus.Double";
          when 's' =>
             return "String";
          when 'o' =>
             return "D_Bus.Types.Obj_Path";
          when 'g' =>
-            return "D_Bus.Extra.Signature";
+            return "D_Bus.Types.Signature";
          when 'h' =>
-            return "D_Bus.Extra.File_Descriptor";
-         when others =>
-            raise Program_Error;
+            return "D_Bus.File_Descriptor";
       end case;
    end Get_Library_Ada_Type;
-end Type_Checking;
+end Signatures;

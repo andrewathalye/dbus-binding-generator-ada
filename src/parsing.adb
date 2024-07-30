@@ -4,16 +4,22 @@ with DOM.Core.Nodes;
 with Ada.Strings.Unbounded;
 use type Ada.Strings.Unbounded.Unbounded_String;
 
+with Signatures.Unbounded; use Signatures.Unbounded;
+
 with Shared; use Shared;
 with Debug;  use Debug;
 
 package body Parsing is
    --  D_Bus argument
    function Process_Argument (Node : DOM.Core.Node) return Argument_Type is
-     (+DOM.Core.Elements.Get_Attribute (Node, "name"),
-      +DOM.Core.Elements.Get_Attribute (Node, "type"),
-      (if +DOM.Core.Elements.Get_Attribute (Node, "direction") = "in" then DIn
-       else DOut));
+     (Name      => +DOM.Core.Elements.Get_Attribute (Node, "name"),
+      Type_Code =>
+        +Signatures.As_Signature
+          (DOM.Core.Elements.Get_Attribute (Node, "type")),
+      Direction =>
+        (if +DOM.Core.Elements.Get_Attribute (Node, "direction") = "in" then
+           DIn
+         else DOut));
 
    --  D_Bus method
    function Process_Method (Node : DOM.Core.Node) return Method_Type;
@@ -42,7 +48,9 @@ package body Parsing is
    function Process_Property (Node : DOM.Core.Node) return Property_Type;
    function Process_Property (Node : DOM.Core.Node) return Property_Type is
      ((Name      => +DOM.Core.Elements.Get_Attribute (Node, "name"),
-       Type_Code => +DOM.Core.Elements.Get_Attribute (Node, "type"),
+       Type_Code =>
+         +Signatures.As_Signature
+           (DOM.Core.Elements.Get_Attribute (Node, "type")),
        PAccess   =>
          (if +DOM.Core.Elements.Get_Attribute (Node, "access") = "read" then
             Read

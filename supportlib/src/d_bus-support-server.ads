@@ -176,7 +176,7 @@ package D_Bus.Support.Server is
    --------------------------------
    -- Constructors / Destructors --
    --------------------------------
-   procedure Create (O : out Server_Object; Node : Unbounded_Object_Path);
+   procedure Create (O : out Server_Object; Node : D_Bus.Types.Obj_Path);
    --  Create a new Server_Object
 
    overriding procedure Destroy (O : in out Server_Object);

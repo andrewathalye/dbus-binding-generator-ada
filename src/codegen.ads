@@ -5,6 +5,7 @@ with Ada.Strings.Unbounded;
 with Parsing;
 
 private with Ada.Containers.Vectors;
+private with Signatures.Unbounded;
 
 package Codegen is
    type Ada_Package_Type is private;
@@ -31,7 +32,7 @@ private
    -----------------------
    type Ada_Record_Member_Type is record
       Name      : Ada.Strings.Unbounded.Unbounded_String;
-      Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+      Type_Code : Signatures.Unbounded.Unbounded_Signature;
    end record;
 
    package ARML is new Ada.Containers.Vectors
@@ -42,18 +43,18 @@ private
      (Basic_Kind, Array_Kind, Struct_Kind, Ordered_Dict_Kind, Hashed_Dict_Kind,
       Variant_Kind);
    type Ada_Type_Declaration (Kind : ATDK := Basic_Kind) is record
-      Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+      Type_Code : Signatures.Unbounded.Unbounded_Signature;
 
       case Kind is
          when Basic_Kind | Variant_Kind =>
             null;
          when Array_Kind =>
-            Array_Element_Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+            Array_Element_Type_Code : Signatures.Unbounded.Unbounded_Signature;
          when Struct_Kind =>
             Struct_Members : Ada_Record_Member_List;
          when Ordered_Dict_Kind | Hashed_Dict_Kind =>
-            Dict_Key_Type_Code     : Ada.Strings.Unbounded.Unbounded_String;
-            Dict_Element_Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+            Dict_Key_Type_Code     : Signatures.Unbounded.Unbounded_Signature;
+            Dict_Element_Type_Code : Signatures.Unbounded.Unbounded_Signature;
       end case;
    end record;
 end Codegen;

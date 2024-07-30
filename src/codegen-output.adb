@@ -89,23 +89,14 @@ package body Codegen.Output is
       Put_Line (File, "if " & Expression & " then");
    end Start_If;
 
-   procedure Start_Else is
-   begin
-      Put_Line (File, "else");
-   end Start_Else;
-
    procedure End_If is
    begin
       Put_Line (File, "end if;");
    end End_If;
 
-   procedure Raise_Exception (Name : String; Expression : String := "") is
+   procedure Raise_Exception (Name : String) is
    begin
-      if Expression'Length = 0 then
-         Put_Line (File, "raise " & Name & ";");
-      else
-         Put_Line (File, "raise " & Name & " with " & Expression & ";");
-      end if;
+      Put_Line (File, "raise " & Name & ";");
    end Raise_Exception;
 
    procedure Declare_Procedure (Signature : String) is
@@ -163,11 +154,6 @@ package body Codegen.Output is
       Put_Line (File, "with " & Entity & ";");
    end With_Entity;
 
-   procedure Private_With_Entity (Entity : String) is
-   begin
-      Put_Line (File, "private with " & Entity & ";");
-   end Private_With_Entity;
-
    procedure New_Line is
    begin
       New_Line (File);
@@ -207,11 +193,6 @@ package body Codegen.Output is
       Put_Line (File, "package " & Name & " is " & Extension & ";");
    end Declare_Package;
 
-   procedure Private_Package is
-   begin
-      Put_Line (File, "private");
-   end Private_Package;
-
    procedure Start_Record (Name : String) is
    begin
       Put_Line (File, "type " & Name & " is record");
@@ -238,13 +219,4 @@ package body Codegen.Output is
    --  See the spec for documentation
    --  See `codegen-output-sanitise_name.adb` for justification.
    function Sanitise_Name (Name : String) return String is separate;
-
-   procedure Exception_Code is
-   begin
-      Put_Line (File, "exception");
-   end Exception_Code;
-   procedure When_Exception (Name : String) is
-   begin
-      Put_Line (File, "when X : " & Name & " =>");
-   end When_Exception;
 end Codegen.Output;

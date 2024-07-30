@@ -1,0 +1,8 @@
+<node name="/test/Node">
+   <interface name="test.Node">
+      <method name="TestError">
+         <!-- Dict keys must be basic types -->
+         <arg type="a{asv}"/>
+      </method>
+   </interface>
+</node>

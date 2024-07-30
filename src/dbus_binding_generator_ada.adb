@@ -53,7 +53,7 @@ procedure DBus_Binding_Generator_Ada is
    begin
       Put_Line
         ("Usage: " & Ada.Command_Line.Command_Name &
-         " [-client | -server] [input files]");
+         " [-client | -server | -types] [input files]");
       GNAT.OS_Lib.OS_Exit (-1);
    end Show_Help;
 
@@ -68,14 +68,14 @@ procedure DBus_Binding_Generator_Ada is
    -----------
    -- Types --
    -----------
-   type Client_Server is (Client, Server);
+   type Mode_Type is (Client, Server, Types);
 
    ---------------
    -- Variables --
    ---------------
    File_List : File_Lists.Vector;
    Node_List : Node_Lists.Vector;
-   Mode      : Client_Server := Client;
+   Mode      : Mode_Type := Client;
 
    ---------
    -- XML --
@@ -89,14 +89,15 @@ begin
    ---------------
    loop
       begin
-         case GNAT.Command_Line.Getopt ("* client server help -help") is
+         case GNAT.Command_Line.Getopt ("client server types help -help") is
             when 'c' =>
                Mode := Client;
+               exit;
             when 's' =>
                Mode := Server;
-            when '*' =>
-               File_List.Append (GNAT.Command_Line.Full_Switch);
-            when ASCII.NUL =>
+               exit;
+            when 't' =>
+               Mode := Types;
                exit;
             when others =>
                Show_Help;
@@ -107,6 +108,20 @@ begin
             Error_Message ("Invalid switch");
             return;
       end;
+   end loop;
+
+   -----------
+   -- Files --
+   -----------
+   loop
+      case GNAT.Command_Line.Getopt ("*") is
+         when '*' =>
+            File_List.Append (GNAT.Command_Line.Full_Switch);
+         when ASCII.NUL =>
+            exit;
+         when others =>
+            raise Program_Error;
+      end case;
    end loop;
 
    ------------
@@ -148,7 +163,7 @@ begin
       Reader.Free;
    exception
       when Schema.Validators.XML_Validation_Error =>
-         Error_Message ("ERROR: " & Reader.Get_Error_Message);
+         Error_Message ("SCHEMA ERROR: " & Reader.Get_Error_Message);
 
    end;
    Put_Debug ("Loaded grammar");
@@ -177,7 +192,7 @@ begin
             Reader.Free;
          exception
             when Schema.Validators.XML_Validation_Error =>
-               Error_Message ("ERROR: " & Reader.Get_Error_Message);
+               Error_Message ("SPEC ERROR: " & Reader.Get_Error_Message);
          end;
          Put_Debug ("Loaded tree");
 
@@ -207,9 +222,6 @@ begin
       Pkgs : Codegen.Maps.Ada_Package_Map;
       --  All declared interfaces as Ada packages
 
-      Types : Codegen.Types.Ada_Type_Declaration_Map;
-      --  All declared types as Ada types
-
       procedure Recurse_Node (Node : in out Parsing.Node_Type);
       procedure Recurse_Node (Node : in out Parsing.Node_Type) is
       begin
@@ -235,18 +247,7 @@ begin
          Recurse_Node (Top_Level_Node);
       end loop;
 
-      --  Collect and generate types
-      declare
-      begin
-         for Pkg of Pkgs loop
-            Codegen.Types.Add_Types (Types, Pkg);
-         end loop;
-
-         Codegen.Types.Print (Types);
-         Put_Debug ("Generated types package");
-      end;
-
-      --  Generate client and server code
+      --  Generate client code, server code, or types
       case Mode is
          when Client =>
             for Pkg of Pkgs loop
@@ -258,7 +259,18 @@ begin
             end loop;
 
             Codegen.Server.Objects.Print (Pkgs);
+         when Types =>
+            declare
+               Types : Codegen.Types.Ada_Type_Declaration_Map;
+            begin
+               for Pkg of Pkgs loop
+                  Codegen.Types.Add_Types (Types, Pkg);
+               end loop;
+
+               Codegen.Types.Print (Types);
+            end;
       end case;
-      Put_Debug ("Generated client/server code");
+
+      Put_Debug ("Generated code");
    end;
 end DBus_Binding_Generator_Ada;

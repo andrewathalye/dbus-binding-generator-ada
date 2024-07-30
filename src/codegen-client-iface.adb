@@ -2,8 +2,9 @@ with Codegen.Output.Subprograms; use Codegen.Output.Subprograms;
 use Codegen.Output;
 with Codegen.Types;
 
-with Shared;        use Shared;
-with Type_Checking; use Type_Checking;
+with Shared;               use Shared;
+with Signatures.Unbounded; use Signatures.Unbounded;
+with Signatures;           use Signatures;
 
 package body Codegen.Client.Iface is
    ----------------
@@ -29,8 +30,9 @@ package body Codegen.Client.Iface is
       With_Entity ("D_Bus.Arguments.Containers");
       --  `Variant_Type`
 
-      With_Entity ("D_Bus.Support");
-      --  `Unbounded_Object_Path`, `Unbounded_Signature`
+      With_Entity ("D_Bus.Types");
+      --  `Obj_Path` `Signature`
+
       With_Entity ("D_Bus.Support.Client");
       --  `Client_Interface`
 
@@ -95,10 +97,7 @@ package body Codegen.Client.Iface is
       Use_Pragma ("Warnings (Off, ""-gnatwr"")");
       Use_Pragma ("Warnings (Off, ""-gnatwm"")");
 
-      With_Entity ("D_Bus.Types");
       With_Entity ("D_Bus.Arguments.Basic");
-      With_Entity ("D_Bus.Extra");
-      With_Entity ("D_Bus.Support");
       With_Entity ("D_Bus.Messages");
 
       --  Package
@@ -158,8 +157,8 @@ package body Codegen.Client.Iface is
                         Call
                           ("Bind_To_Ada (" &
                            Get_Library_DBus_Type (+A.Type_Code) &
-                           " (Reply_Args.Get_Element (" &
-                           Index'Image & ")), " & (+A.Name) & ")");
+                           " (Reply_Args.Get_Element (" & Index'Image &
+                           ")), " & (+A.Name) & ")");
 
                         Index := Index + 1;
                      end if;
@@ -245,7 +244,8 @@ package body Codegen.Client.Iface is
                      --  Check that the property was of the right type
                      Call
                        ("D_Bus.Support.Client.Check_Signature" &
-                        " (Variant.Get_Argument, """ & (+P.Type_Code) & """)");
+                        " (Variant.Get_Argument, """ &
+                        As_String (+P.Type_Code) & """)");
 
                      --  Bind to Ada
                      Assign

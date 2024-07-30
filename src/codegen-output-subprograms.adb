@@ -1,7 +1,8 @@
 pragma Ada_2012;
 
-with Type_Checking; use Type_Checking;
-with Shared;        use Shared;
+with Signatures.Unbounded; use Signatures.Unbounded;
+with Signatures;           use Signatures;
+with Shared;               use Shared;
 
 package body Codegen.Output.Subprograms is
    -------------------
@@ -38,7 +39,7 @@ package body Codegen.Output.Subprograms is
                  (Buf,
                   (+AL (I).Name) & " : " &
                   To_Ada_Direction (AL (I).Direction) & " " &
-                  (Type_Checking.Get_Ada_Type (+AL (I).Type_Code)));
+                  (Signatures.Get_Ada_Type (+AL (I).Type_Code)));
 
                if I /= LI then
                   Append (Buf, "; ");
@@ -233,7 +234,7 @@ package body Codegen.Output.Subprograms is
    begin
       return
         Property_Read_Name (P) & " (O : Child_Interface'Class) return " &
-        Type_Checking.Get_Ada_Type (+P.Type_Code);
+        Signatures.Get_Ada_Type (+P.Type_Code);
    end Property_Read_Signature;
 
    -------------------------
@@ -252,7 +253,7 @@ package body Codegen.Output.Subprograms is
    begin
       return
         Property_Write_Name (P) & " (O : in out Child_Interface'Class;" &
-        " Value : " & Type_Checking.Get_Ada_Type (+P.Type_Code) & ")";
+        " Value : " & Signatures.Get_Ada_Type (+P.Type_Code) & ")";
    end Property_Write_Signature;
 
    ----------------------

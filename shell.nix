@@ -1,5 +1,4 @@
-{ nix-ada ? import ../nix-ada/default.nix {}
-}:
+{ nix-ada }:
 
 nix-ada.pkgs.mkShell {
    nativeBuildInputs = [
@@ -9,6 +8,7 @@ nix-ada.pkgs.mkShell {
       nix-ada.ada-language-server
       nix-ada.pkgs.nodejs
       nix-ada.pkgs.gdb
+      nix-ada.pkgs.lcov
    ];
       
    buildInputs = [

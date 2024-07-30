@@ -3,7 +3,7 @@ with "xmlada_dom";
 with "xmlada_schema";
 
 project dbus_binding_generator_ada is
-   type Build_Mode_Type is ("dev", "prod");
+   type Build_Mode_Type is ("dev", "prod", "coverage");
    Build_Mode : Build_Mode_Type := external ("BUILD_MODE", "dev");
 
    for Exec_Dir use ".";
@@ -14,13 +14,17 @@ project dbus_binding_generator_ada is
    package Compiler is
       Common_Switches := ("-gnatwa", "-gnatwe", "-gnatyy");
 
+      Dev_Switches := Common_Switches & ("-g", "-Og", "-gnata", "-gnatVa");
+      Prod_Switches := Common_Switches & ("-O3", "-gnatp", "-ffast-math");
+      Coverage_Switches := Dev_Switches & ("-fprofile-arcs", "-ftest-coverage");
+
       case Build_Mode is
          when "dev" =>
-            for Default_Switches ("Ada") use
-               Common_Switches & ("-g", "-Og", "-gnata", "-gnatVa");
+            for Default_Switches ("Ada") use Dev_Switches;
          when "prod" =>
-            for Default_Switches ("Ada") use
-               Common_Switches & ("-O3", "-gnatp", "-ffast-math");
+            for Default_Switches ("Ada") use Prod_Switches;
+         when "coverage" =>
+            for Default_Switches ("Ada") use Coverage_Switches;
       end case;
    end Compiler;
 
@@ -28,7 +32,7 @@ project dbus_binding_generator_ada is
       Common_Switches := ("-shared");
 
       case Build_Mode is
-         when "dev" =>
+         when "dev" | "coverage" =>
             for Default_Switches ("Ada") use Common_Switches & ("-Es");
          when "prod" =>
             for Default_Switches ("Ada") use Common_Switches;
@@ -40,6 +44,8 @@ project dbus_binding_generator_ada is
          when "dev" =>  null;
          when "prod" =>
             for Default_Switches ("Ada") use ("-Wl,-s", "-Wl,--gc-sections");
+         when "coverage" =>
+            for Default_Switches ("Ada") use ("-lgcov");
       end case;
    end Linker;
 end dbus_binding_generator_ada;

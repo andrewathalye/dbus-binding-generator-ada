@@ -1,5 +1,7 @@
 pragma Ada_2005;
 
+with Ada.Strings.Unbounded;
+
 with dbus_types_h;
 with dbus_errors_h;
 with dbus_bus_h;
@@ -40,11 +42,10 @@ package body D_Bus.Support is
    ----------
    -- Node --
    ----------
-   function Node (O : Root_Object'Class) return Unbounded_Object_Path is
-      use D_Bus.Types;
+   function Node (O : Root_Object'Class) return D_Bus.Types.Obj_Path is
    begin
       Assert_Valid (O);
-      return Ada.Strings.Unbounded.To_Unbounded_String (To_String (O.Node));
+      return O.Node;
    end Node;
 
    -------------------

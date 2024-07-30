@@ -317,13 +317,11 @@ package body D_Bus.Support.Client is
    --------------------------------
    -- Constructor and Destructor --
    --------------------------------
-   procedure Create (O : out Client_Object; Node : Unbounded_Object_Path) is
-      use Ada.Strings.Unbounded;
-      use type D_Bus.Types.Obj_Path;
+   procedure Create (O : out Client_Object; Node : D_Bus.Types.Obj_Path) is
    begin
       Assert_Invalid (O);
 
-      O.Node  := +To_String (Node);
+      O.Node  := Node;
       O.Valid := True;
    end Create;
 

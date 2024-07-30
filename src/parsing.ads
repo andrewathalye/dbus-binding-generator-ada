@@ -4,6 +4,8 @@ with Ada.Strings.Unbounded;
 with Ada.Unchecked_Deallocation;
 with DOM.Core;
 
+with Signatures.Unbounded;
+
 package Parsing is
    type DBus_Direction is (DIn, DOut);
    type DBus_Access is (Read, Write, Readwrite);
@@ -11,7 +13,7 @@ package Parsing is
    --  TODO annotations are not processed
    type Argument_Type is record
       Name      : Ada.Strings.Unbounded.Unbounded_String;
-      Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+      Type_Code : Signatures.Unbounded.Unbounded_Signature;
       Direction : DBus_Direction;
    end record;
 
@@ -33,7 +35,7 @@ package Parsing is
 
    type Property_Type is record
       Name      : Ada.Strings.Unbounded.Unbounded_String;
-      Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+      Type_Code : Signatures.Unbounded.Unbounded_Signature;
       PAccess   : DBus_Access;
    end record;
 

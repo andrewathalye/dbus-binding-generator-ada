@@ -3,7 +3,8 @@ pragma Ada_2012;
 with Codegen.Output;             use Codegen.Output;
 with Codegen.Output.Subprograms; use Codegen.Output.Subprograms;
 
-with Type_Checking; use Type_Checking;
+with Signatures.Unbounded; use Signatures.Unbounded;
+with Signatures;           use Signatures;
 with Parsing;
 
 with Shared; use Shared;
@@ -14,7 +15,24 @@ package body Codegen.Server.Iface is
    ----------------------
    procedure Print_Properties (Pkg : Ada_Package_Type);
    procedure Print_Properties (Pkg : Ada_Package_Type) is
+      Set_Signature : constant String :=
+        "Set (O : in out Child_Interface'Class;" &
+        " Iface : Ada.Strings.Unbounded.Unbounded_String;" &
+        " Name : Ada.Strings.Unbounded.Unbounded_String;" &
+        " Value : D_Bus.Arguments.Containers.Variant_Type)";
+
+      Get_Signature : constant String :=
+        "Get (O : in out Child_Interface'Class;" &
+        " Iface : Ada.Strings.Unbounded.Unbounded_String;" &
+        " Name : Ada.Strings.Unbounded.Unbounded_String;" &
+        " Value : out D_Bus.Arguments.Containers.Variant_Type)";
+
+      GetAll_Signature : constant String :=
+        "GetAll (O : in out Child_Interface'Class;" &
+        " Iface : Ada.Strings.Unbounded.Unbounded_String;" &
+        " Properties : out Dict_sv)";
    begin
+
       --  Spec
       Use_Pragma ("Ada_2005");
       New_Line;
@@ -38,9 +56,9 @@ package body Codegen.Server.Iface is
          New_Line;
 
          Large_Comment ("Methods");
-         for M of Pkg.Methods loop
-            Declare_Procedure (Method_Signature (M));
-         end loop;
+         Declare_Procedure (Set_Signature);
+         Declare_Procedure (Get_Signature);
+         Declare_Procedure (GetAll_Signature);
 
          --  Note: we don’t support manually emitting
          --  signals, including PropertiesChanged
@@ -56,46 +74,36 @@ package body Codegen.Server.Iface is
 
       Start_Package_Body (+Pkg.Name);
       begin
-         for M of Pkg.Methods loop
-            if +M.Name = "Get" then
-               Start_Procedure (Method_Signature (M));
-               Begin_Code;
-               begin
-                  Call
-                    ("O.Get_Property (To_String (interface_name)," &
-                     " To_String (property_name), value)");
-               end;
-               End_Procedure (Method_Name (M));
-            elsif +M.Name = "GetAll" then
-               Start_Procedure (Method_Signature (M));
-               begin
-                  Declare_Entity
-                    ("DBus_Dict", "D_Bus.Arguments.Containers.Array_Type");
-               end;
-               Begin_Code;
-               begin
-                  Call
-                    ("O.Get_All_Properties (To_String (interface_name)," &
-                     " DBus_Dict)");
+         Start_Procedure (Set_Signature);
+         Begin_Code;
+         begin
+            Call
+              ("O.Set_Property (To_String (Iface)," &
+               " To_String (Name), Value)");
+         end;
+         End_Procedure ("Set");
 
-                  Call ("Bind_To_Ada (DBus_Dict, properties)");
-               end;
-               End_Procedure (Method_Name (M));
-            elsif +M.Name = "Set" then
-               Start_Procedure (Method_Signature (M));
-               Begin_Code;
-               begin
-                  Call
-                    ("O.Set_Property (To_String (interface_name)," &
-                     " To_String (property_name), value)");
-               end;
-               End_Procedure (Method_Name (M));
-            else
-               raise Program_Error
-                 with "Builtin interface had unexpected method name " &
-                 (+M.Name);
-            end if;
-         end loop;
+         Start_Procedure (Get_Signature);
+         Begin_Code;
+         begin
+            Call
+              ("O.Get_Property (To_String (Iface)," &
+               " To_String (Name), Value)");
+         end;
+         End_Procedure ("Get");
+
+         Start_Procedure (GetAll_Signature);
+         begin
+            Declare_Entity
+              ("DBus_Dict", "D_Bus.Arguments.Containers.Array_Type");
+         end;
+         Begin_Code;
+         begin
+            Call ("O.Get_All_Properties (To_String (Iface)," & " DBus_Dict)");
+
+            Call ("Bind_To_Ada (DBus_Dict, Properties)");
+         end;
+         End_Procedure ("GetAll");
       end;
       End_Package (+Pkg.Name);
    end Print_Properties;
@@ -114,23 +122,17 @@ package body Codegen.Server.Iface is
 
       With_Entity ("Ada.Strings.Unbounded");
       --  `Unbounded_String`
-      Use_Type ("Ada.Strings.Unbounded.Unbounded_String");
-      --  ^^
 
       With_Entity ("Interfaces");
       --  All basic types
-      Use_Entity ("Interfaces");
-      --  ^^
 
       With_Entity ("D_Bus.Arguments.Containers");
       --  `Variant_Type`
       Use_Type ("D_Bus.Arguments.Containers.Variant_Type");
       --  ^^
 
-      With_Entity ("D_Bus.Support");
-      --  `Unbounded_Object_Path`, `Unbounded_Signature`
-      Use_Entity ("D_Bus.Support");
-      --  ^^
+      With_Entity ("D_Bus.Types");
+      --  `Obj_Path`, `Signature`
 
       With_Entity ("D_Bus.Support.Server");
       --  `Server_Interface` and associated methods
@@ -230,8 +232,6 @@ package body Codegen.Server.Iface is
 
       With_Entity ("D_Bus.Arguments.Containers");
       With_Entity ("D_Bus.Arguments.Basic");
-      With_Entity ("D_Bus.Extra");
-      With_Entity ("D_Bus.Types");
 
       Start_Package_Body (+Pkg.Name);
       begin

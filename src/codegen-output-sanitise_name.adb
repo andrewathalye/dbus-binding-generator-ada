@@ -87,10 +87,6 @@ begin
    end;
 
    --  Otherwise replace disallowed characters
-   if Buf = "/" then
-      return "Root";
-   end if;
-
    for C of Buf loop
       case C is
          when '/' | '-' | '.' =>

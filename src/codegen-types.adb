@@ -4,31 +4,29 @@ with Codegen.Output;             use Codegen.Output;
 with Codegen.Output.Subprograms; use Codegen.Output.Subprograms;
 with Codegen.Binding;            use Codegen.Binding;
 
-with Shared;        use Shared;
-with Type_Checking; use Type_Checking;
+with Shared;               use Shared;
+with Signatures.Unbounded; use Signatures.Unbounded;
+with Signatures;           use Signatures;
+with Debug;                use Debug;
 
 package body Codegen.Types is
    ------------------------
    -- Generate_Ada_Types --
    ------------------------
    procedure Generate_Ada_Types
-     (Map       : in out Ada_Type_Declaration_Map;
-      Type_Code :        Ada.Strings.Unbounded.Unbounded_String);
+     (Map : in out Ada_Type_Declaration_Map; Type_Code : Unbounded_Signature);
    procedure Generate_Ada_Types
-     (Map       : in out Ada_Type_Declaration_Map;
-      Type_Code :        Ada.Strings.Unbounded.Unbounded_String)
+     (Map : in out Ada_Type_Declaration_Map; Type_Code : Unbounded_Signature)
    is
       type Type_Category is (DBus_Array, DBus_Struct, DBus_Dict);
-
-      Type_First : constant Character := String'(+Type_Code) (1);
 
       --  Produce declarations for complex types
       procedure Internal (T : Type_Category);
       procedure Internal (T : Type_Category) is
          use Ada.Strings.Unbounded;
 
-         Interior_S  : constant String           := Get_Interior (+Type_Code);
-         Interior_UB : constant Unbounded_String := +Interior_S;
+         Interior_S  : constant Signature := Get_Interior (+Type_Code);
+         Interior_UB : constant Unbounded_Signature := +Interior_S;
       begin
          case T is
             when DBus_Array =>
@@ -53,12 +51,12 @@ package body Codegen.Types is
                   I := 1;
                   loop
                      declare
-                        Type_Code : Ada.Strings.Unbounded.Unbounded_String;
+                        SM_Type_Code : Unbounded_Signature;
                      begin
-                        Type_Code := +Get_Complete_Type (Interior_S, I);
+                        SM_Type_Code := +Get_Complete_Type (Interior_S, I);
 
                         --  Generate types recursively
-                        Generate_Ada_Types (Map, Type_Code);
+                        Generate_Ada_Types (Map, SM_Type_Code);
 
                         --  Add the struct declaration
                         Struct_Decl.Struct_Members.Append
@@ -80,9 +78,9 @@ package body Codegen.Types is
                end;
             when DBus_Dict =>
                declare
-                  Key_Type     : constant Unbounded_String :=
+                  Key_Type     : constant Unbounded_Signature :=
                     +Get_Complete_Type (Interior_S, 1);
-                  Element_Type : constant Unbounded_String :=
+                  Element_Type : constant Unbounded_Signature :=
                     +Get_Complete_Type (Interior_S, 2);
 
                   Dict_Decl : Ada_Type_Declaration;
@@ -90,7 +88,8 @@ package body Codegen.Types is
                   --  A dict key must be a basic type
                   if not Is_Basic (+Key_Type) then
                      raise Program_Error
-                       with "Key " & (+Key_Type) & " is a complex type";
+                       with "Key " & As_String (+Key_Type) &
+                       " is a complex type";
                   end if;
 
                   Generate_Ada_Types (Map, Key_Type);
@@ -112,18 +111,22 @@ package body Codegen.Types is
                end;
          end case;
       end Internal;
+
+      TC : constant Signature := +Type_Code;
    begin
       --  Avoid duplicate type declarations
       if Map.Contains (Type_Code) then
          return;
       end if;
 
+      Put_Debug (As_String (TC));
+
       --  Complex types need type definitions
       --  Basic types get Builtin_Kind stubs
-      case Type_First is
+      case Starting_Type (TC (TC'First)) is
          --  Check for dicts
          when 'a' =>
-            if String'(+Type_Code) (2) = '{' then
+            if TC (TC'First + 1) = '{' then
                Internal (DBus_Dict);
             else
                Internal (DBus_Array);
@@ -152,7 +155,7 @@ package body Codegen.Types is
    begin
       for A of Arguments loop
          if A.Direction = Parsing.DIn then
-            Append (Buf, A.Type_Code);
+            Append (Buf, As_String (+A.Type_Code));
          end if;
       end loop;
 
@@ -172,7 +175,7 @@ package body Codegen.Types is
    begin
       for A of Arguments loop
          if A.Direction = Parsing.DOut then
-            Append (Buf, A.Type_Code);
+            Append (Buf, As_String (+A.Type_Code));
          end if;
       end loop;
 
@@ -216,11 +219,11 @@ package body Codegen.Types is
       function Resolve_Dependencies return Ada_Type_Declaration_List;
       function Resolve_Dependencies return Ada_Type_Declaration_List is
          package USL is new Ada.Containers.Vectors
-           (Positive, Ada.Strings.Unbounded.Unbounded_String);
-         subtype Unbounded_String_List is USL.Vector;
+           (Positive, Signatures.Unbounded.Unbounded_Signature);
+         subtype Unbounded_Signature_List is USL.Vector;
 
          Result      : Ada_Type_Declaration_List;
-         Bookkeeping : Unbounded_String_List;
+         Bookkeeping : Unbounded_Signature_List;
 
          procedure Resolve_Dependency (TD : Ada_Type_Declaration);
          procedure Resolve_Dependency (TD : Ada_Type_Declaration) is
@@ -283,8 +286,9 @@ package body Codegen.Types is
       With_Entity ("D_Bus.Arguments.Basic");
       With_Entity ("D_Bus.Arguments.Containers");
       Use_Type ("D_Bus.Arguments.Containers.Variant_Type");
-      With_Entity ("D_Bus.Extra");
-      With_Entity ("D_Bus.Support");
+      With_Entity ("D_Bus.Types");
+      Use_Type ("D_Bus.Types.Obj_Path");
+      Use_Type ("D_Bus.Types.Signature");
       New_Line;
 
       Start_Package ("D_Bus.Generated_Types");

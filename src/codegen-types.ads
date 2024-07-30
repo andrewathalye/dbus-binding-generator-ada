@@ -1,17 +1,15 @@
 pragma Ada_2012;
 
 with Ada.Containers.Hashed_Maps;
-with Ada.Strings.Unbounded;
-use type Ada.Strings.Unbounded.Unbounded_String;
-with Ada.Strings.Unbounded.Hash_Case_Insensitive;
 
 with Parsing;
+with Signatures.Unbounded;
+use type Signatures.Unbounded.Unbounded_Signature;
 
 package Codegen.Types is
    package Ada_Type_Declaration_Maps is new Ada.Containers.Hashed_Maps
-     (Key_Type        => Ada.Strings.Unbounded.Unbounded_String,
-      Element_Type    => Ada_Type_Declaration,
-      Hash            => Ada.Strings.Unbounded.Hash_Case_Insensitive,
+     (Key_Type        => Signatures.Unbounded.Unbounded_Signature,
+      Element_Type => Ada_Type_Declaration, Hash => Signatures.Unbounded.Hash,
       Equivalent_Keys => "=");
    subtype Ada_Type_Declaration_Map is Ada_Type_Declaration_Maps.Map;
    --  A package containing only a list of Ada type declarations.
@@ -19,6 +17,7 @@ package Codegen.Types is
    function Calculate_Request_Signature
      (Arguments : Parsing.Argument_List) return String;
    --  Return the D_Bus signature of the in arguments in `Arguments`
+   --  This is a `String` so that it can be easily integrated as a literal.
 
    function Calculate_Reply_Signature
      (Arguments : Parsing.Argument_List) return String;

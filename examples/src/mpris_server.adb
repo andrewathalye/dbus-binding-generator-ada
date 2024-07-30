@@ -9,7 +9,8 @@ with GNAT.OS_Lib;
 --  D_Bus Library
 with D_Bus.Arguments.Basic;
 with D_Bus.Arguments.Containers;
-with D_Bus.Support; use D_Bus.Support;
+with D_Bus.Types;
+use type D_Bus.Types.Obj_Path;
 with D_Bus.Support.Server; use D_Bus.Support.Server;
 
 --  Interfaces
@@ -39,7 +40,7 @@ procedure MPRIS_Server is
    end record;
 
    overriding procedure Create
-     (O : out MPRIS_Object; Node : Unbounded_Object_Path);
+     (O : out MPRIS_Object; Node : D_Bus.Types.Obj_Path);
    overriding procedure Quit (O : in out MPRIS_Object);
    overriding procedure Play (O : in out MPRIS_Object);
    overriding procedure Pause (O : in out MPRIS_Object);
@@ -49,7 +50,7 @@ procedure MPRIS_Server is
    -- Methods on MPRIS_Object --
    -----------------------------
    overriding procedure Create
-     (O : out MPRIS_Object; Node : Unbounded_Object_Path)
+     (O : out MPRIS_Object; Node : D_Bus.Types.Obj_Path)
    is
    begin
       --  Create base object
@@ -123,7 +124,7 @@ begin
 
    --  Object
    Put_Line ("Create and register object");
-   Server.Create (To_Unbounded_String ("/org/mpris/MediaPlayer2"));
+   Server.Create (+"/org/mpris/MediaPlayer2");
    D_Bus.Generated_Objects.Register (Server'Unchecked_Access);
 
    --  Update properties

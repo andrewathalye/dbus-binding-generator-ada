@@ -1,13 +1,11 @@
 pragma Ada_2005;
 
-with Ada.Strings.Unbounded;
-
 with D_Bus.Arguments;
+with D_Bus.Types;
 
 private with Ada.Unchecked_Conversion;
 
 private with D_Bus.Connection;
-private with D_Bus.Types;
 
 private with dbus_connection_h;
 
@@ -24,17 +22,6 @@ package D_Bus.Support is
    --  and will not conflict with the default shared connection or any
    --  other private connection.
 
-   -----------
-   -- Types --
-   -----------
-   subtype Unbounded_Object_Path is Ada.Strings.Unbounded.Unbounded_String;
-   Null_Unbounded_Object_Path : constant Unbounded_Object_Path;
-   --  The Ada type used to represent a D_Bus object path
-
-   subtype Unbounded_Signature is Ada.Strings.Unbounded.Unbounded_String;
-   Null_Unbounded_Signature : constant Unbounded_Signature;
-   --  The Ada type used to represent a D_Bus Signature
-
    ------------------------
    -- Signature Checking --
    ------------------------
@@ -49,19 +36,12 @@ package D_Bus.Support is
    --  The root object of all D_Bus objects. It provides
    --  the below methods.
 
-   function Node (O : Root_Object'Class) return Unbounded_Object_Path;
+   function Node (O : Root_Object'Class) return D_Bus.Types.Obj_Path;
    --  Return the node name associated with `O`
 
    procedure Destroy (O : in out Root_Object) is abstract;
    --  Destroy `O` and free all associated structures.
 private
-   --  Deferred Constants
-   Null_Unbounded_Object_Path : constant Unbounded_Object_Path :=
-     Ada.Strings.Unbounded.Null_Unbounded_String;
-
-   Null_Unbounded_Signature : constant Unbounded_Signature :=
-     Ada.Strings.Unbounded.Null_Unbounded_String;
-
    --  Types
    type Root_Object is abstract tagged limited record
       Valid : Boolean := False;

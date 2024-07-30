@@ -1,10 +1,11 @@
 pragma Ada_2005;
 
-private with Ada.Strings.Hash;
-private with Ada.Containers.Indefinite_Hashed_Maps;
-
 with D_Bus.Messages;
 with D_Bus.Arguments.Containers;
+
+private with Ada.Strings.Unbounded;
+private with Ada.Strings.Hash;
+private with Ada.Containers.Indefinite_Hashed_Maps;
 
 package D_Bus.Support.Client is
    ----------
@@ -114,7 +115,7 @@ package D_Bus.Support.Client is
    ----------------------------------
    -- Constructors and Destructors --
    ----------------------------------
-   procedure Create (O : out Client_Object; Node : Unbounded_Object_Path);
+   procedure Create (O : out Client_Object; Node : D_Bus.Types.Obj_Path);
 
    procedure Set_Destination (O : in out Client_Object; Destination : String);
 

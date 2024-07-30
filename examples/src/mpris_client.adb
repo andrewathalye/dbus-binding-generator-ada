@@ -4,6 +4,10 @@ pragma Ada_2012;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;           use Ada.Text_IO;
 
+--  D_Bus/Ada
+with D_Bus.Types;
+use type D_Bus.Types.Obj_Path;
+
 --  D_Bus Interfaces
 with org_freedesktop_DBus;
 with org_mpris_MediaPlayer2;

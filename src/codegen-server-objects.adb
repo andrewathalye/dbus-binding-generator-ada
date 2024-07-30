@@ -4,9 +4,10 @@ with Codegen.Output;             use Codegen.Output;
 with Codegen.Output.Subprograms; use Codegen.Output.Subprograms;
 with Codegen.Types;
 
-with Type_Checking; use Type_Checking;
+with Signatures;           use Signatures;
+with Signatures.Unbounded; use Signatures.Unbounded;
 with Parsing;
-with Shared;        use Shared;
+with Shared;               use Shared;
 
 package body Codegen.Server.Objects is
    ----------------
@@ -58,7 +59,6 @@ package body Codegen.Server.Objects is
       With_Entity ("D_Bus.Arguments.Basic");
       With_Entity ("D_Bus.Arguments.Containers");
       With_Entity ("D_Bus.Types");
-      With_Entity ("D_Bus.Extra");
 
       With_Entity ("D_Bus.Generated_Types");
       Use_Entity ("D_Bus.Generated_Types");

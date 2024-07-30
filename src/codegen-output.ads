@@ -6,7 +6,6 @@ package Codegen.Output is
      (I : String; Range_1 : String; Range_2 : String);
    procedure End_For_Loop;
    procedure Start_If (Expression : String);
-   procedure Start_Else;
    procedure End_If;
 
    --  Pragmas
@@ -15,8 +14,6 @@ package Codegen.Output is
    --  Code Blocks
    procedure Declare_Code;
    procedure Begin_Code;
-   procedure Exception_Code;
-   procedure When_Exception (Name : String);
    procedure End_Code;
 
    --  Subprograms
@@ -36,7 +33,6 @@ package Codegen.Output is
    procedure Declare_Package (Name : String; Extension : String);
    procedure Start_Package_Body (Name : String);
    procedure Start_Package (Name : String);
-   procedure Private_Package;
    procedure End_Package (Name : String);
 
    --  Entity Clauses
@@ -47,7 +43,6 @@ package Codegen.Output is
    procedure Declare_Entity
      (Entity : String; EType : String; Value : String := "");
    procedure With_Entity (Entity : String);
-   procedure Private_With_Entity (Entity : String);
 
    --  Types
    procedure Declare_Type (Name : String; Extension : String);
@@ -58,7 +53,7 @@ package Codegen.Output is
    --  Assignment and Invocation
    procedure Assign (Entity : String; Expression : String);
    procedure Call (Expression : String);
-   procedure Raise_Exception (Name : String; Expression : String := "");
+   procedure Raise_Exception (Name : String);
 
    --  Comments and Formatting
    procedure Large_Comment (Message : String);

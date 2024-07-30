@@ -2,18 +2,17 @@ pragma Ada_2012;
 
 with Codegen.Output; use Codegen.Output;
 
-with Type_Checking; use Type_Checking;
-with Shared;        use Shared;
+with Signatures.Unbounded; use Signatures.Unbounded;
+with Signatures;           use Signatures;
+with Shared;               use Shared;
 
 package body Codegen.Binding is
-
    ------------------
    -- Bind_To_DBus --
    ------------------
    procedure Bind_To_DBus
      (Types     : Codegen.Types.Ada_Type_Declaration_Map;
-      Type_Code : Ada.Strings.Unbounded.Unbounded_String; Ada_Name : String;
-      DBus_Name : String)
+      Type_Code : Unbounded_Signature; Ada_Name : String; DBus_Name : String)
    is
       procedure Bind_To_DBus_Inner
         (TD : Ada_Type_Declaration; Ada_Name : String; DBus_Name : String);
@@ -29,23 +28,14 @@ package body Codegen.Binding is
                Declare_Code;
                   Use_Entity ("D_Bus.Arguments.Basic");
                   Use_Entity ("D_Bus.Types");
-                  Use_Entity ("D_Bus.Extra");
                Begin_Code;
-                  if Is_Stringlike (+TD.Type_Code) then
-                     --  Unbounded_String -> String
-                     --  -> Obj_Path -> Object_Path_Type
-                     if +TD.Type_Code = Object_Path then
-                        Assign
-                          (DBus_Name,
-                           "+(+Ada.Strings.Unbounded.To_String (" & Ada_Name &
-                           "))");
-                     else --  Unbounded_String -> String -> String_Type
-                        Assign
-                          (DBus_Name,
-                           "+" & Get_Library_Ada_Type (+TD.Type_Code) & " (" &
-                           "Ada.Strings.Unbounded.To_String (" & Ada_Name &
-                           "))");
-                     end if;
+                  --  Special string handling
+                  if +TD.Type_Code = "s" then
+                     Assign
+                       (DBus_Name,
+                        "+" & Get_Library_Ada_Type (+TD.Type_Code) & " (" &
+                        "Ada.Strings.Unbounded.To_String (" & Ada_Name &
+                        "))");
                   else
                      Assign
                        (DBus_Name,
@@ -77,7 +67,7 @@ package body Codegen.Binding is
                Start_If (DBus_Name & ".Is_Empty");
                   Call
                     (DBus_Name & ".Set_Signature (""" &
-                     (+TD.Array_Element_Type_Code) & """)");
+                     As_String (+TD.Array_Element_Type_Code) & """)");
                End_If;
                --!pp on
 
@@ -134,8 +124,8 @@ package body Codegen.Binding is
                Start_If (DBus_Name & ".Is_Empty");
                   Call
                     (DBus_Name & ".Set_Signature (""{" &
-                     (+TD.Dict_Key_Type_Code) &
-                     (+TD.Dict_Element_Type_Code) & "}"")");
+                     As_String (+TD.Dict_Key_Type_Code) &
+                     As_String (+TD.Dict_Element_Type_Code) & "}"")");
                End_If;
 
                --!pp on
@@ -152,8 +142,7 @@ package body Codegen.Binding is
    -----------------
    procedure Bind_To_Ada
      (Types     : Codegen.Types.Ada_Type_Declaration_Map;
-      Type_Code : Ada.Strings.Unbounded.Unbounded_String; DBus_Name : String;
-      Ada_Name  : String)
+      Type_Code : Unbounded_Signature; DBus_Name : String; Ada_Name : String)
    is
       procedure Bind_To_Ada_Inner
         (TD : Ada_Type_Declaration; DBus_Name : String; Ada_Name : String);
@@ -168,7 +157,7 @@ package body Codegen.Binding is
             when Basic_Kind =>
                --  Ada_Name := To_Unbounded_String
                --    (To_String (String_Type (D_Bus_Name)))
-               if Is_Stringlike (+TD.Type_Code) then
+               if +TD.Type_Code = "s" then
                   Assign
                     (Ada_Name,
                      "Ada.Strings.Unbounded.To_Unbounded_String (" &

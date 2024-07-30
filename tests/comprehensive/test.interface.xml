@@ -1,4 +1,26 @@
 <node name="/test/Node">
+   <!-- Test builtin server interface for OFDP -->
+   <interface name="org.freedesktop.DBus.Properties">
+      <method name="Set">
+         <arg type="s"/>
+         <arg type="s"/>
+         <arg type="v"/>
+      </method>
+
+      <method name="Get">
+         <arg type="s"/>
+         <arg type="s"/>
+         <arg type="v" direction="out"/>
+      </method>
+
+      <signal name="PropertiesChanged">
+         <arg type="s"/>
+         <arg type="a{sv}"/>
+      </signal>
+   </interface>
+
+   <interface name="test.Duplicate"/>
+
    <interface name="test.Node">
       <method name="TestEmpty"/>
 
@@ -39,15 +61,25 @@
       <method name="TestComplexTypes">
          <arg name="simple_struct" type="(s)"/>
          <arg name="simple_arr" type="as"/>
-         <arg name="simple_dict" type="a{sv}"/>
-         <arg name="dict_arr_struct" type="a{oa(gsv)}"/>
+         <arg name="int_dict" type="a{iv}"/>
+         <arg name="string_dict" type="a{sv}"/>
+         <arg name="obj_path_dict" type="a{ov}"/>
+         <arg name="signature_dict" type="a{gv}"/>
+         <arg name="nested_dict" type="a{sa{sv}}"/>
+         <arg name="nested_struct" type="((s))"/>
+         <arg name="novel_array" type="a(hhhhh)"/>
       </method>
 
       <method name="TestComplexTypesOut">
-         <arg name="simple_struct" type="(s)"/>
+         <arg name="simple_struct" type="(s)" direction="out"/>
          <arg name="simple_arr" type="as" direction="out"/>
-         <arg name="simple_dict" type="a{sv}" direction="out"/>
-         <arg name="dict_arr_struct" type="a{oa(gsv)}" direction="out"/>
+         <arg name="int_dict" type="a{iv}" direction="out"/>
+         <arg name="string_dict" type="a{sv}" direction="out"/>
+         <arg name="obj_path_dict" type="a{ov}" direction="out"/>
+         <arg name="signature_dict" type="a{gv}" direction="out"/>
+         <arg name="nested_dict" type="a{sa{sv}}" direction="out"/>
+         <arg name="nested_struct" type="((s))" direction="out"/>
+         <arg name="novel_array" type="a(hhhhh)" direction="out"/>
       </method>
 
       <!-- Test reserved names -->
@@ -59,6 +91,9 @@
          <arg name="targ" type="s"/>
       </signal>
 
+      <!-- Test properties -->
+      <property name="TestPropertyReadOnly" type="s" access="read"/>
+      <property name="TestPropertyWriteOnly" type="s" access="write"/>
       <property name="TestProperty" type="s" access="readwrite"/>
 
       <annotation name="test.annotation" value="Test"/>
@@ -68,11 +103,14 @@
       <interface name="test.node.Interior">
          <method name="Method"/>
       </interface>
+
+      <interface name="test.Duplicate"/>
    </node>
 
    <node name="/test/node/InteriorWithEmpty">
       <interface name="test.node.InteriorWithEmpty"/>
    </node>
 
-   <node name="/test/node/InteriorEmpty"/>
+   <!-- Test empty interior nodes and nodes named "/" -->
+   <node name="/"/>
 </node>
