@@ -1,0 +1,3 @@
+aggregate project Bindings is
+   for Project_Files use ("./gpr/bindings_client.gpr", "./gpr/bindings_server.gpr");
+end Bindings;

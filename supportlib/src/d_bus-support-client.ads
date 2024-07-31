@@ -14,14 +14,12 @@ package D_Bus.Support.Client is
    Invalid_Signature : exception;
 
    procedure Check_Signature
-     (Arguments : D_Bus.Arguments.Argument_List_Type;
-      Signature : String);
+     (Arguments : D_Bus.Arguments.Argument_List_Type; Signature : String);
    --  Raise `Invalid_Signature` if the signature of `Arguments` is
    --  not equal to `Signature`
 
    procedure Check_Signature
-    (Argument : D_Bus.Arguments.Argument_Type'Class;
-     Signature : String);
+     (Argument : D_Bus.Arguments.Argument_Type'Class; Signature : String);
    --  The same, but for a single argument.
 
    ------------------------------------
@@ -64,17 +62,13 @@ package D_Bus.Support.Client is
    -- Properties --
    ----------------
    procedure Set_Property
-     (O : Client_Interface;
-      Iface : String;
-      Name : String;
+     (O     : Client_Interface; Iface : String; Name : String;
       Value : D_Bus.Arguments.Containers.Variant_Type) is abstract;
    --  Set a property with semantics identical to the
    --  standard `org.freedesktop.DBus.Properties.Set`
 
    procedure Get_Property
-     (O : Client_Interface;
-      Iface : String;
-      Name : String;
+     (O     :     Client_Interface; Iface : String; Name : String;
       Value : out D_Bus.Arguments.Containers.Variant_Type) is abstract;
    --  Get a property with semantics identical to the
    --  standard `org.freedesktop.DBus.Properties.Get`
@@ -82,8 +76,8 @@ package D_Bus.Support.Client is
    ----------------------------------------
    -- Implementation for `Client_Object` --
    ----------------------------------------
-   type Client_Object is abstract limited new Root_Object and Client_Interface
-   with private;
+   type Client_Object is
+     abstract limited new Root_Object and Client_Interface with private;
 
    overriding procedure Register_Signal
      (O : in out Client_Object; Iface : String; Name : String);
@@ -101,15 +95,11 @@ package D_Bus.Support.Client is
       return D_Bus.Arguments.Argument_List_Type;
 
    procedure Set_Property
-     (O : Client_Object;
-      Iface : String;
-      Name : String;
+     (O     : Client_Object; Iface : String; Name : String;
       Value : D_Bus.Arguments.Containers.Variant_Type);
 
    procedure Get_Property
-     (O : Client_Object;
-      Iface : String;
-      Name : String;
+     (O     :     Client_Object; Iface : String; Name : String;
       Value : out D_Bus.Arguments.Containers.Variant_Type);
 
    ----------------------------------
@@ -125,8 +115,8 @@ private
    package Signal_Maps is new Ada.Containers.Indefinite_Hashed_Maps
      (String, String, Ada.Strings.Hash, "=");
 
-   type Client_Object is limited new Root_Object and Client_Interface with
-   record
+   type Client_Object is
+   limited new Root_Object and Client_Interface with record
       Destination : Ada.Strings.Unbounded.Unbounded_String;
       Signals     : Signal_Maps.Map;
    end record;

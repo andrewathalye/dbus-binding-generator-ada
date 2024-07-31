@@ -1,0 +1,5 @@
+project Bindings_Client extends "shared" is
+   for Exec_Dir use Shared'Exec_Dir;
+   for Object_Dir use Shared'Object_Dir;
+   for Main use ("bindings_client.adb");
+end Bindings_Client;

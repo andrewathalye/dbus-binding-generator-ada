@@ -26,7 +26,8 @@ package body D_Bus.Support.Server is
    begin
       --  Note: Changing the global connection
       D_Bus_Lock.Acquire;
-      Critical_Section : begin
+      Critical_Section :
+      begin
          D_Bus.Connection.Request_Name (Connection, Name);
       end Critical_Section;
       D_Bus_Lock.Release;
@@ -35,24 +36,18 @@ package body D_Bus.Support.Server is
    ---------------------
    -- Check_Signature --
    ---------------------
-   procedure Check_Signature
-     (Actual : String;
-      Expected : String);
-   procedure Check_Signature
-     (Actual : String;
-      Expected : String)
-   is
+   procedure Check_Signature (Actual : String; Expected : String);
+   procedure Check_Signature (Actual : String; Expected : String) is
    begin
       if Actual /= Expected then
-         raise Invalid_Signature with
-           "Expected signature """ & Expected & """ not found. Found """ &
-            Actual & """ instead";
+         raise Invalid_Signature
+           with "Expected signature """ & Expected & """ not found. Found """ &
+           Actual & """ instead";
       end if;
    end Check_Signature;
 
    procedure Check_Signature
-     (Arguments : D_Bus.Arguments.Argument_List_Type;
-      Signature : String)
+     (Arguments : D_Bus.Arguments.Argument_List_Type; Signature : String)
    is
       Arg_Sig : constant String := Get_Signature (Arguments);
    begin
@@ -60,8 +55,7 @@ package body D_Bus.Support.Server is
    end Check_Signature;
 
    procedure Check_Signature
-     (Argument : D_Bus.Arguments.Argument_Type'Class;
-      Signature : String)
+     (Argument : D_Bus.Arguments.Argument_Type'Class; Signature : String)
    is
    begin
       Check_Signature (Argument.Get_Signature, Signature);
@@ -73,27 +67,28 @@ package body D_Bus.Support.Server is
    procedure Release_Name (Name : String) is
       use type Interfaces.C.int;
 
-      C_Res : Interfaces.C.int;
-      D_Err : aliased dbus_errors_h.DBusError;
+      C_Res  : Interfaces.C.int;
+      D_Err  : aliased dbus_errors_h.DBusError;
       C_Name : Interfaces.C.Strings.chars_ptr :=
         Interfaces.C.Strings.New_String (Name);
-      CO : constant Connection_Overlay := Convert (Connection);
+      CO     : constant Connection_Overlay    := Convert (Connection);
    begin
       --  Note: Changing the global connection
       D_Bus_Lock.Acquire;
-      Critical_Section : begin
-         C_Res := dbus_bus_h.dbus_bus_release_name
-           (connection => CO.Thin_Connection,
-            name => C_Name,
-            error => D_Err'Access);
+      Critical_Section :
+      begin
+         C_Res :=
+           dbus_bus_h.dbus_bus_release_name
+             (connection => CO.Thin_Connection, name => C_Name,
+              error      => D_Err'Access);
       end Critical_Section;
       D_Bus_Lock.Release;
 
       Interfaces.C.Strings.Free (C_Name);
 
       if C_Res /= dbus_shared_h.DBUS_RELEASE_NAME_REPLY_RELEASED then
-         raise D_Bus_Error with
-            "Unable to release name " & Name & " (" & C_Res'Image & ")";
+         raise D_Bus_Error
+           with "Unable to release name " & Name & " (" & C_Res'Image & ")";
       end if;
    end Release_Name;
 
@@ -104,7 +99,8 @@ package body D_Bus.Support.Server is
    begin
       --  Note: Changing the global connection
       D_Bus_Lock.Acquire;
-      Critical_Section : begin
+      Critical_Section :
+      begin
          D_Bus.Connection.G_Main.Setup_With_G_Main (Connection);
       end Critical_Section;
       D_Bus_Lock.Release;
@@ -115,8 +111,7 @@ package body D_Bus.Support.Server is
    -------------------
    procedure Run_Iteration is
       function g_main_context_iteration
-        (Context : System.Address;
-         Blocking : Integer) return Integer;
+        (Context : System.Address; Blocking : Integer) return Integer;
       pragma Import (C, g_main_context_iteration);
 
       Discard : Integer;
@@ -139,7 +134,7 @@ package body D_Bus.Support.Server is
    --  We are 'borrowing' the object.
 
    type Object_Data_Type is limited record
-      Object : Server_Object_Access;
+      Object   : Server_Object_Access;
       Handlers : Handler_Map;
    end record;
 
@@ -153,104 +148,109 @@ package body D_Bus.Support.Server is
 
    procedure Unregister_Function
      (Connection : access dbus_connection_h.DBusConnection;
-      User_Data : System.Address);
+      User_Data  : System.Address);
    pragma Convention (C, Unregister_Function);
 
    procedure Unregister_Function
      (Connection : access dbus_connection_h.DBusConnection;
-      User_Data : System.Address)
+      User_Data  : System.Address)
    is
       pragma Unreferenced (Connection);
 
       OJA : Object_Data_Access :=
-         Object_Data_Access
-           (Object_Data_Conversions.To_Pointer (User_Data));
+        Object_Data_Access (Object_Data_Conversions.To_Pointer (User_Data));
    begin
       Free (OJA);
    end Unregister_Function;
 
    function Message_Function
      (Connection : access dbus_connection_h.DBusConnection;
-      Message : access dbus_message_h.DBusMessage;
-      User_Data : System.Address) return dbus_shared_h.DBusHandlerResult;
+      Message : access dbus_message_h.DBusMessage; User_Data : System.Address)
+      return dbus_shared_h.DBusHandlerResult;
    pragma Convention (C, Message_Function);
 
    function Message_Function
      (Connection : access dbus_connection_h.DBusConnection;
-      Message : access dbus_message_h.DBusMessage;
-      User_Data : System.Address) return dbus_shared_h.DBusHandlerResult
+      Message : access dbus_message_h.DBusMessage; User_Data : System.Address)
+      return dbus_shared_h.DBusHandlerResult
    is
       pragma Unreferenced (Connection);
       use D_Bus.Messages;
 
       --  Variables
       OJA : constant Object_Data_Access :=
-        Object_Data_Access
-          (Object_Data_Conversions.To_Pointer (User_Data));
+        Object_Data_Access (Object_Data_Conversions.To_Pointer (User_Data));
 
       --  Messages
       Request : constant Message_Type := Create (Message);
-      Reply : Message_Type;
+      Reply   : Message_Type;
    begin
       --  Try to execute the handler
       if not OJA.Handlers.Contains (Get_Interface (Request)) then
-         Reply := New_Error
-           (Reply_To => Request,
-            Error_Name => "org.freedesktop.DBus.Error.UnknownInterface",
-            Error_Message =>
-               "Interface " &
-                Get_Interface (Request) &
-                " not implemented by object " &
-                Get_Path (Request));
+         Reply :=
+           New_Error
+             (Reply_To      => Request,
+              Error_Name    => "org.freedesktop.DBus.Error.UnknownInterface",
+              Error_Message =>
+                "Interface " & Get_Interface (Request) &
+                " not implemented by object " & Get_Path (Request));
       else
          Try_Handler :
          declare
-            Handler : constant Handler_Access := OJA.Handlers.Element
-              (Get_Interface (Request));
+            Handler : constant Handler_Access :=
+              OJA.Handlers.Element (Get_Interface (Request));
          begin
             Assert_Valid (OJA.Object.all);
             Handler (OJA.Object.all, Request, Reply);
          exception
             when Unknown_Method =>
-               Reply := New_Error
-                 (Reply_To => Request,
-                  Error_Name => "org.freedesktop.DBus.Error.UnknownMethod",
-                  Error_Message =>
-                     "Method " & Get_Member (Request) &
-                     " not implemented by interface " &
-                     Get_Interface (Request) &
-                     " on object " & Get_Path (Request));
+               Reply :=
+                 New_Error
+                   (Reply_To      => Request,
+                    Error_Name => "org.freedesktop.DBus.Error.UnknownMethod",
+                    Error_Message =>
+                      "Method " & Get_Member (Request) &
+                      " not implemented by interface " &
+                      Get_Interface (Request) & " on object " &
+                      Get_Path (Request));
 
             when X : Unknown_Property =>
-               Reply := New_Error
-                 (Reply_To => Request,
-                  Error_Name => "org.freedesktop.DBus.Error.UnknownProperty",
-                  Error_Message => Ada.Exceptions.Exception_Message (X));
+               Reply :=
+                 New_Error
+                   (Reply_To      => Request,
+                    Error_Name => "org.freedesktop.DBus.Error.UnknownProperty",
+                    Error_Message => Ada.Exceptions.Exception_Message (X));
 
             when X : Invalid_Signature =>
-               Reply := New_Error
-                 (Reply_To => Request,
-                  Error_Name => "org.freedesktop.DBus.Error.InvalidSignature",
-                  Error_Message => Ada.Exceptions.Exception_Message (X));
+               Reply :=
+                 New_Error
+                   (Reply_To      => Request,
+                    Error_Name    =>
+                      "org.freedesktop.DBus.Error.InvalidSignature",
+                    Error_Message => Ada.Exceptions.Exception_Message (X));
 
             when X : Property_Read_Only =>
-               Reply := New_Error
-                 (Reply_To => Request,
-                  Error_Name => "org.freedesktop.DBus.Error.PropertyReadOnly",
-                  Error_Message => Ada.Exceptions.Exception_Message (X));
+               Reply :=
+                 New_Error
+                   (Reply_To      => Request,
+                    Error_Name    =>
+                      "org.freedesktop.DBus.Error.PropertyReadOnly",
+                    Error_Message => Ada.Exceptions.Exception_Message (X));
 
             when X : Property_Write_Only =>
-               Reply := New_Error
-                 (Reply_To => Request,
-                  Error_Name => "org.freedesktop.DBus.Error.AccessDenied",
-                  Error_Message => Ada.Exceptions.Exception_Message (X));
+               Reply :=
+                 New_Error
+                   (Reply_To      => Request,
+                    Error_Name    => "org.freedesktop.DBus.Error.AccessDenied",
+                    Error_Message => Ada.Exceptions.Exception_Message (X));
          end Try_Handler;
       end if;
 
       --  Send a reply
       --  Note: Sending a message is modifying global state
       D_Bus_Lock.Acquire;
-      Critical_Section : begin
+      Critical_Section :
+      begin
          D_Bus.Connection.Send (D_Bus.Support.Connection, Reply);
       end Critical_Section;
       D_Bus_Lock.Release;
@@ -264,13 +264,12 @@ package body D_Bus.Support.Server is
    --------------
    -- Register --
    --------------
-   procedure Register
-     (O : access Server_Object'Class; Handlers : Handler_Map)
+   procedure Register (O : access Server_Object'Class; Handlers : Handler_Map)
    is
       use D_Bus.Types;
       use type dbus_types_h.dbus_bool_t;
 
-      CO : Connection_Overlay;
+      CO         : Connection_Overlay;
       C_Obj_Path : Interfaces.C.Strings.chars_ptr;
 
       D_Res : dbus_types_h.dbus_bool_t;
@@ -290,43 +289,42 @@ package body D_Bus.Support.Server is
       Assert_Valid (O.all);
 
       --  Set up the `Object_Data_Type`
-      OJA.Object := Server_Object_Access (O);
+      OJA.Object   := Server_Object_Access (O);
       OJA.Handlers := Handlers;
 
       CO := Convert (Connection);
 
-      C_Obj_Path := Interfaces.C.Strings.New_String
-        (To_String (O.Node));
+      C_Obj_Path := Interfaces.C.Strings.New_String (To_String (O.Node));
 
       --  Note: Registering an object on the global connection
       D_Bus_Lock.Acquire;
-      Critical_Section : begin
-         D_Res := dbus_connection_h.dbus_connection_register_object_path
-           (connection => CO.Thin_Connection,
-            path => C_Obj_Path,
-            vtable => VTable'Access,
-            user_data =>
-               Object_Data_Conversions.To_Address (OJA.all'Access));
+      Critical_Section :
+      begin
+         D_Res :=
+           dbus_connection_h.dbus_connection_register_object_path
+             (connection => CO.Thin_Connection, path => C_Obj_Path,
+              vtable     => VTable'Access,
+              user_data  =>
+                Object_Data_Conversions.To_Address (OJA.all'Access));
       end Critical_Section;
       D_Bus_Lock.Release;
 
       Interfaces.C.Strings.Free (C_Obj_Path);
 
       if D_Res /= 1 then
-         raise D_Bus_Error with
-            "Failed to register object " & To_String (O.Node);
+         raise D_Bus_Error
+           with "Failed to register object " & To_String (O.Node);
       end if;
    end Register;
 
    ----------------
    -- Unregister --
    ----------------
-   procedure Unregister (O : Server_Object'Class)
-   is
+   procedure Unregister (O : Server_Object'Class) is
       use D_Bus.Types;
       use type dbus_types_h.dbus_bool_t;
 
-      CO : Connection_Overlay;
+      CO         : Connection_Overlay;
       C_Obj_Path : Interfaces.C.Strings.chars_ptr;
 
       D_Res : dbus_types_h.dbus_bool_t;
@@ -335,23 +333,23 @@ package body D_Bus.Support.Server is
 
       CO := Convert (Connection);
 
-      C_Obj_Path := Interfaces.C.Strings.New_String
-        (To_String (O.Node));
+      C_Obj_Path := Interfaces.C.Strings.New_String (To_String (O.Node));
 
       --  Note: Unregistering a global object
       D_Bus_Lock.Acquire;
-      Critical_Section : begin
-         D_Res := dbus_connection_h.dbus_connection_unregister_object_path
-           (connection => CO.Thin_Connection,
-            path => C_Obj_Path);
+      Critical_Section :
+      begin
+         D_Res :=
+           dbus_connection_h.dbus_connection_unregister_object_path
+             (connection => CO.Thin_Connection, path => C_Obj_Path);
       end Critical_Section;
       D_Bus_Lock.Release;
 
       Interfaces.C.Strings.Free (C_Obj_Path);
 
       if D_Res /= 1 then
-         raise D_Bus_Error with
-            "Failed to unregister object " & To_String (O.Node);
+         raise D_Bus_Error
+           with "Failed to unregister object " & To_String (O.Node);
       end if;
    end Unregister;
    ----------------------------------------------------------------------------
@@ -368,8 +366,8 @@ package body D_Bus.Support.Server is
    is
       use D_Bus.Types;
    begin
-      raise Unknown_Property with
-        "No property " & Iface & "." & Name & " on object " &
+      raise Unknown_Property
+        with "No property " & Iface & "." & Name & " on object " &
         To_String (O.Node);
    end Raise_Unknown_Property;
 
@@ -385,13 +383,11 @@ package body D_Bus.Support.Server is
 
       --  Note: using the global connection
       D_Bus_Lock.Acquire;
-      Critical_Section : begin
+      Critical_Section :
+      begin
          D_Bus.Connection.Send_Signal
-           (Connection => Connection,
-            Object_Name => O.Node,
-            Iface => Iface,
-            Name => Name,
-            Args => Args);
+           (Connection => Connection, Object_Name => O.Node, Iface => Iface,
+            Name       => Name, Args => Args);
       end Critical_Section;
       D_Bus_Lock.Release;
    end Send_Signal;
@@ -400,16 +396,16 @@ package body D_Bus.Support.Server is
    -- Set_Property --
    ------------------
    procedure Set_Property
-     (O     : in out Server_Object; Iface : String; Name : String;
-      Value :        D_Bus.Arguments.Containers.Variant_Type;
-      PAccess : Access_Type := Unchanged)
+     (O       : in out Server_Object; Iface : String; Name : String;
+      Value   :        D_Bus.Arguments.Containers.Variant_Type;
+      PAccess :        Access_Type := Unchanged)
    is
       use type D_Bus.Arguments.Basic.String_Type;
       use D_Bus.Types;
 
-      Property_Array : D_Bus.Arguments.Containers.Array_Type;
+      Property_Array    : D_Bus.Arguments.Containers.Array_Type;
       Invalidated_Array : D_Bus.Arguments.Containers.Array_Type;
-      Args : D_Bus.Arguments.Argument_List_Type;
+      Args              : D_Bus.Arguments.Argument_List_Type;
    begin
       Assert_Valid (O);
 
@@ -438,10 +434,11 @@ package body D_Bus.Support.Server is
       if PAccess = Unchanged then
          case O.Properties (Iface) (Name).PAccess is
             when Read =>
-               raise Property_Read_Only with
-                  "Property " & Iface & "." & Name & " on object " &
-                  To_String (O.Node) & " is read only";
-            when Write | Readwrite => null;
+               raise Property_Read_Only
+                 with "Property " & Iface & "." & Name & " on object " &
+                 To_String (O.Node) & " is read only";
+            when Write | Readwrite =>
+               null;
          end case;
       end if;
 
@@ -451,15 +448,13 @@ package body D_Bus.Support.Server is
       declare
          Original_Signature : constant String :=
            O.Properties (Iface) (Name).Value.Get_Argument.Get_Signature;
-         New_Signature : constant String :=
-           Value.Get_Argument.Get_Signature;
+         New_Signature : constant String := Value.Get_Argument.Get_Signature;
       begin
          if Original_Signature /= New_Signature then
-            raise Invalid_Signature with
-               "New value for property " & Iface & "." & Name &
-               " on object " & To_String (O.Node) &
-               " has wrong signature: " & New_Signature &
-               " != " & Original_Signature;
+            raise Invalid_Signature
+              with "New value for property " & Iface & "." & Name &
+              " on object " & To_String (O.Node) & " has wrong signature: " &
+              New_Signature & " != " & Original_Signature;
          end if;
       end Check_Signature;
 
@@ -487,17 +482,16 @@ package body D_Bus.Support.Server is
 
       O.Send_Signal
         (Iface => "org.freedesktop.DBus.Properties",
-         Name => "PropertiesChanged",
-         Args => Args);
+         Name  => "PropertiesChanged", Args => Args);
    end Set_Property;
 
    ------------------
    -- Get_Property --
    ------------------
    procedure Get_Property
-     (O     : Server_Object; Iface : String; Name : String;
-      Value :    out D_Bus.Arguments.Containers.Variant_Type;
-      Internal : Boolean := False)
+     (O        :     Server_Object; Iface : String; Name : String;
+      Value    : out D_Bus.Arguments.Containers.Variant_Type;
+      Internal :     Boolean := False)
    is
       use D_Bus.Types;
    begin
@@ -505,14 +499,14 @@ package body D_Bus.Support.Server is
 
       --  Ensure property exists and is readable
       if O.Properties.Contains (Iface)
-         and then O.Properties (Iface).Contains (Name)
+        and then O.Properties (Iface).Contains (Name)
       then
          --  If being called locally, bypass access check
          if not Internal and then O.Properties (Iface) (Name).PAccess = Write
          then
-            raise Property_Write_Only with
-               "Property " & Iface & "." & Name & " on " & To_String (O.Node) &
-               " is not readable";
+            raise Property_Write_Only
+              with "Property " & Iface & "." & Name & " on " &
+              To_String (O.Node) & " is not readable";
          end if;
       else
          Raise_Unknown_Property (O, Iface, Name);
@@ -525,9 +519,8 @@ package body D_Bus.Support.Server is
    -- Get_All_Properties --
    ------------------------
    procedure Get_All_Properties
-       (O : Server_Object;
-        Iface : String;
-        Properties : out D_Bus.Arguments.Containers.Array_Type)
+     (O          :     Server_Object; Iface : String;
+      Properties : out D_Bus.Arguments.Containers.Array_Type)
    is
       use type D_Bus.Arguments.Basic.String_Type;
 
@@ -544,11 +537,11 @@ package body D_Bus.Support.Server is
       --  Add each property to the list
       for Cursor in O.Properties (Iface).Iterate loop
          --  Access check
-         if O.Properties (Iface) (Cursor).PAccess in Read | Readwrite
-         then
-            Dict_Entry := D_Bus.Arguments.Containers.Create
-              (+Name_Value_Maps.Key (Cursor),
-               O.Properties (Iface) (Cursor).Value);
+         if O.Properties (Iface) (Cursor).PAccess in Read | Readwrite then
+            Dict_Entry :=
+              D_Bus.Arguments.Containers.Create
+                (+Name_Value_Maps.Key (Cursor),
+                 O.Properties (Iface) (Cursor).Value);
          end if;
 
          Properties.Append (Dict_Entry);
@@ -562,7 +555,7 @@ package body D_Bus.Support.Server is
    begin
       Assert_Invalid (O);
 
-      O.Node := Node;
+      O.Node  := Node;
       O.Valid := True;
    end Create;
 

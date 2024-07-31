@@ -30,4 +30,8 @@ package Codegen.Types is
 
    procedure Print (Types : Ada_Type_Declaration_Map);
    --  Declare a package containing type definitions for `Types`
+
+   procedure Print_Neutral (Pkg : Ada_Package_Type);
+   --  Declare an empty progenitor package for the Client and Server
+   --  versions of the interface in `Pkg`
 end Codegen.Types;

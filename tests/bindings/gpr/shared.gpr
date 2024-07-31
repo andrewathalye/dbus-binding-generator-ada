@@ -1,5 +1,5 @@
 with "dbusada";
-with "../../supportlib/dbusada_support";
+with "../../../supportlib/dbusada_support";
 
 project Shared is
    for Source_Dirs use ("../generated", "../src");

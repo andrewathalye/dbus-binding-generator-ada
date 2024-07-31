@@ -14,8 +14,8 @@ use type D_Bus.Types.Obj_Path;
 with D_Bus.Support.Server; use D_Bus.Support.Server;
 
 --  Interfaces
-with org_mpris_MediaPlayer2;
-with org_mpris_MediaPlayer2_Player;
+with org_mpris_MediaPlayer2.Server;
+with org_mpris_MediaPlayer2_Player.Server;
 
 --  Generated Packages
 with D_Bus.Generated_Objects;
@@ -33,8 +33,8 @@ procedure MPRIS_Server is
    -- MPRIS_Object --
    ------------------
    type MPRIS_Object is new Server_Object
-      and org_mpris_MediaPlayer2.Child_Interface
-      and org_mpris_MediaPlayer2_Player.Child_Interface with
+      and org_mpris_MediaPlayer2.Server.Child_Interface
+      and org_mpris_MediaPlayer2_Player.Server.Child_Interface with
    record
       Should_Quit : Boolean := False;
    end record;

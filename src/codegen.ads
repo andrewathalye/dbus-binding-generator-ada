@@ -55,6 +55,14 @@ private
          when Ordered_Dict_Kind | Hashed_Dict_Kind =>
             Dict_Key_Type_Code     : Signatures.Unbounded.Unbounded_Signature;
             Dict_Element_Type_Code : Signatures.Unbounded.Unbounded_Signature;
+
+            case Kind is
+               when Hashed_Dict_Kind =>
+                  Dict_Key_Hash_Function : Ada.Strings.Unbounded
+                    .Unbounded_String;
+               when others =>
+                  null;
+            end case;
       end case;
    end record;
 end Codegen;

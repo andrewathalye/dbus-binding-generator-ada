@@ -7,6 +7,7 @@ with Signatures.Unbounded; use Signatures.Unbounded;
 with Signatures;           use Signatures;
 with Parsing;
 
+with Constants;
 with Shared; use Shared;
 
 package body Codegen.Server.Iface is
@@ -48,7 +49,7 @@ package body Codegen.Server.Iface is
       --  All types
       New_Line;
 
-      Start_Package (+Pkg.Name);
+      Start_Package ((+Pkg.Name) & ".Server");
       begin
          Declare_Type
            ("Child_Interface",
@@ -63,7 +64,7 @@ package body Codegen.Server.Iface is
          --  Note: we don’t support manually emitting
          --  signals, including PropertiesChanged
       end;
-      End_Package (+Pkg.Name);
+      End_Package ((+Pkg.Name) & ".Server");
 
       --  Body
       Use_Pragma ("Ada_2005");
@@ -72,7 +73,7 @@ package body Codegen.Server.Iface is
       With_Entity ("Ada.Strings.Unbounded");
       Use_Entity ("Ada.Strings.Unbounded");
 
-      Start_Package_Body (+Pkg.Name);
+      Start_Package_Body ((+Pkg.Name) & ".Server");
       begin
          Start_Procedure (Set_Signature);
          Begin_Code;
@@ -105,7 +106,7 @@ package body Codegen.Server.Iface is
          end;
          End_Procedure ("GetAll");
       end;
-      End_Package (+Pkg.Name);
+      End_Package ((+Pkg.Name) & ".Server");
    end Print_Properties;
 
    ----------------
@@ -122,18 +123,18 @@ package body Codegen.Server.Iface is
 
       With_Entity ("Ada.Strings.Unbounded");
       --  `Unbounded_String`
-
       With_Entity ("Interfaces");
       --  All basic types
+      With_Entity ("GNAT.OS_Lib");
+      --  `File_Descriptor`
+      New_Line;
 
       With_Entity ("D_Bus.Arguments.Containers");
       --  `Variant_Type`
       Use_Type ("D_Bus.Arguments.Containers.Variant_Type");
       --  ^^
-
       With_Entity ("D_Bus.Types");
       --  `Obj_Path`, `Signature`
-
       With_Entity ("D_Bus.Support.Server");
       --  `Server_Interface` and associated methods
       With_Entity ("D_Bus.Generated_Types");
@@ -141,18 +142,21 @@ package body Codegen.Server.Iface is
       --  All generated types
       New_Line;
 
+      --  Interfaces with properties implement this automatically
       if not Pkg.Properties.Is_Empty then
-         With_Entity ("org_freedesktop_DBus_Properties");
+         With_Entity ("org_freedesktop_DBus_Properties.Server");
+         New_Line;
       end if;
 
-      Start_Package (+Pkg.Name);
+      Start_Package ((+Pkg.Name) & ".Server");
       begin
          --  Interface Type
+         --  Note: An interface with properties implements this by definition.
          if not Pkg.Properties.Is_Empty then
             Declare_Type
               ("Child_Interface",
                "limited interface and" &
-               " org_freedesktop_DBus_Properties.Child_Interface");
+               " org_freedesktop_DBus_Properties.Server.Child_Interface");
          else
             Declare_Type
               ("Child_Interface",
@@ -208,7 +212,7 @@ package body Codegen.Server.Iface is
             New_Line;
          end loop;
       end;
-      End_Package (+Pkg.Name);
+      End_Package ((+Pkg.Name) & ".Server");
    end Print_Spec;
 
    ----------------
@@ -233,7 +237,7 @@ package body Codegen.Server.Iface is
       With_Entity ("D_Bus.Arguments.Containers");
       With_Entity ("D_Bus.Arguments.Basic");
 
-      Start_Package_Body (+Pkg.Name);
+      Start_Package_Body ((+Pkg.Name) & ".Server");
       begin
          Declare_Entity
            ("Iface", "constant String", """" & (+Pkg.Real_Name) & """");
@@ -330,7 +334,7 @@ package body Codegen.Server.Iface is
             End_Procedure (Property_Write_Name (P));
          end loop;
       end;
-      End_Package (+Pkg.Name);
+      End_Package ((+Pkg.Name) & ".Server");
    end Print_Body;
 
    -----------
@@ -340,7 +344,7 @@ package body Codegen.Server.Iface is
    begin
       --  Print the builtin Properties interface package if
       --  necessary.
-      if +Pkg.Real_Name = "org.freedesktop.DBus.Properties" then
+      if +Pkg.Real_Name = Constants.Properties_Interface then
          Print_Properties (Pkg);
       else
          Print_Spec (Pkg);

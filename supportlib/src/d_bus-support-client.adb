@@ -20,22 +20,20 @@ package body D_Bus.Support.Client is
    procedure Check_Signature (Actual, Expected : String) is
    begin
       if Actual /= Expected then
-         raise Invalid_Signature with
-            "Expected signature " & Expected & " but found " & Actual;
+         raise Invalid_Signature
+           with "Expected signature " & Expected & " but found " & Actual;
       end if;
    end Check_Signature;
 
    procedure Check_Signature
-     (Arguments : D_Bus.Arguments.Argument_List_Type;
-      Signature : String)
+     (Arguments : D_Bus.Arguments.Argument_List_Type; Signature : String)
    is
    begin
       Check_Signature (Get_Signature (Arguments), Signature);
    end Check_Signature;
 
    procedure Check_Signature
-    (Argument : D_Bus.Arguments.Argument_Type'Class;
-     Signature : String)
+     (Argument : D_Bus.Arguments.Argument_Type'Class; Signature : String)
    is
    begin
       Check_Signature (Argument.Get_Signature, Signature);
@@ -45,7 +43,7 @@ package body D_Bus.Support.Client is
    -- Internals --
    ---------------
    --  Shared State (Needs Locking)
-   Messages   : D_Bus.Messagebox.Msg_List;
+   Messages : D_Bus.Messagebox.Msg_List;
 
    --  Callback Implementation
    type Signal_Data_Pack is record
@@ -268,9 +266,7 @@ package body D_Bus.Support.Client is
    end Call_Blocking;
 
    procedure Set_Property
-     (O : Client_Object;
-      Iface : String;
-      Name : String;
+     (O     : Client_Object; Iface : String; Name : String;
       Value : D_Bus.Arguments.Containers.Variant_Type)
    is
       use D_Bus.Arguments.Basic;
@@ -282,33 +278,30 @@ package body D_Bus.Support.Client is
       Request.Append (+Name);
       Request.Append (Value);
 
-      Discard := O.Call_Blocking
-        ("org.freedesktop.DBus.Properties", "Set", Request);
+      Discard :=
+        O.Call_Blocking ("org.freedesktop.DBus.Properties", "Set", Request);
    end Set_Property;
 
    procedure Get_Property
-     (O : Client_Object;
-      Iface : String;
-      Name : String;
+     (O     :     Client_Object; Iface : String; Name : String;
       Value : out D_Bus.Arguments.Containers.Variant_Type)
    is
       use D_Bus.Arguments.Basic;
 
       Request : D_Bus.Arguments.Argument_List_Type;
-      Reply : D_Bus.Arguments.Argument_List_Type;
+      Reply   : D_Bus.Arguments.Argument_List_Type;
    begin
       Request.Append (+Iface);
       Request.Append (+Name);
 
-      Reply := O.Call_Blocking
-        ("org.freedesktop.DBus.Properties", "Get", Request);
+      Reply :=
+        O.Call_Blocking ("org.freedesktop.DBus.Properties", "Get", Request);
 
       --  Type Consistency Checks
-      if Reply.Get_Count = 1
-         and then Reply.First_Element.Get_Signature = "v"
+      if Reply.Get_Count = 1 and then Reply.First_Element.Get_Signature = "v"
       then
-         Value := D_Bus.Arguments.Containers.Variant_Type
-           (Reply.First_Element);
+         Value :=
+           D_Bus.Arguments.Containers.Variant_Type (Reply.First_Element);
       else
          raise D_Bus_Error with "Get_Property returned invalid data.";
       end if;

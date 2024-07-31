@@ -29,9 +29,24 @@
 
    <xs:simpleType name="object_path">
       <xs:restriction base="xs:string">
-         <!-- Name format: (/(alnum_)+)+ (/(alnum_)+)? | / -->
+         <!-- Name format: /?((alnum_)+ (/(alnum_)+)?)+ | / -->
+         <xs:pattern value="^\/?(([a-zA-Z0-9_])+(\/([a-zA-Z0-9_])+)?)+$|^\/$"/>
+      </xs:restriction>
+   </xs:simpleType>
+
+   <xs:simpleType name="absolute_object_path">
+      <xs:restriction base="object_path">
+         <!-- Like object_path, but must start with / -->
          <!-- Per the DBus Specification -->
-         <xs:pattern value="^(\/([a-zA-Z0-9_])+)+(\/([a-zA-Z0-9_])+)?$|^\/$"/>
+         <xs:pattern value="^\/.*$"/>
+      </xs:restriction>
+   </xs:simpleType>
+
+   <xs:simpleType name="relative_object_path">
+      <xs:restriction base="object_path">
+         <!-- Like object_path, but must not start with / -->
+         <!-- Per the DBus Specification -->
+         <xs:pattern value="^[^\/].*$"/>
       </xs:restriction>
    </xs:simpleType>
 
@@ -134,7 +149,7 @@
          <xs:element name="node" type="child_node"/>
          <xs:element name="interface" type="interface"/>
       </xs:choice>
-      <xs:attribute name="name" type="object_path" use="required"/>
+      <xs:attribute name="name" type="relative_object_path" use="required"/>
    </xs:complexType>
 
    <!-- Not required to contain a name -->
@@ -143,7 +158,7 @@
          <xs:element name="node" type="child_node"/>
          <xs:element name="interface" type="interface"/>
       </xs:choice>
-      <xs:attribute name="name" type="object_path"/>
+      <xs:attribute name="name" type="absolute_object_path"/>
    </xs:complexType>
 
    <xs:element name="node" type="root_node"/>

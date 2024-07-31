@@ -1,0 +1,6 @@
+<node>
+   <interface name="com.example.TestError">
+      <!-- The root node doesn’t implement O F D P -->
+      <property name="Test" type="s" access="readwrite"/>
+   </interface>
+</node>

@@ -78,33 +78,43 @@ package body Codegen.Types is
                end;
             when DBus_Dict =>
                declare
-                  Key_Type     : constant Unbounded_Signature :=
-                    +Get_Complete_Type (Interior_S, 1);
+                  Key_Type_S   : constant Signature           :=
+                    Get_Complete_Type (Interior_S, 1);
+                  Key_Type_UB  : constant Unbounded_Signature := +Key_Type_S;
                   Element_Type : constant Unbounded_Signature :=
                     +Get_Complete_Type (Interior_S, 2);
 
                   Dict_Decl : Ada_Type_Declaration;
                begin
                   --  A dict key must be a basic type
-                  if not Is_Basic (+Key_Type) then
+                  if not Is_Basic (Key_Type_S) then
                      raise Program_Error
-                       with "Key " & As_String (+Key_Type) &
+                       with "Key " & As_String (Key_Type_S) &
                        " is a complex type";
                   end if;
 
-                  Generate_Ada_Types (Map, Key_Type);
+                  Generate_Ada_Types (Map, Key_Type_UB);
                   Generate_Ada_Types (Map, Element_Type);
 
                   --  Update the dict kind based upon the key type
-                  if Is_Stringlike (+Key_Type) then
+                  if Is_Stringlike (Key_Type_S) then
                      Dict_Decl := (Kind => Hashed_Dict_Kind, others => <>);
+
+                     case Stringlike_Type (Key_Type_S (Key_Type_S'First)) is
+                        when 's' =>
+                           Dict_Decl.Dict_Key_Hash_Function :=
+                             +"Ada.Strings.Unbounded.Hash";
+                        when 'o' | 'g' =>
+                           Dict_Decl.Dict_Key_Hash_Function :=
+                             +"D_Bus.Support.Hashes.Hash";
+                     end case;
                   else
                      Dict_Decl := (Kind => Ordered_Dict_Kind, others => <>);
                   end if;
 
                   --  Fill in the record
                   Dict_Decl.Type_Code              := Type_Code;
-                  Dict_Decl.Dict_Key_Type_Code     := Key_Type;
+                  Dict_Decl.Dict_Key_Type_Code     := Key_Type_UB;
                   Dict_Decl.Dict_Element_Type_Code := Element_Type;
 
                   Map.Insert (Type_Code, Dict_Decl);
@@ -289,6 +299,8 @@ package body Codegen.Types is
       With_Entity ("D_Bus.Types");
       Use_Type ("D_Bus.Types.Obj_Path");
       Use_Type ("D_Bus.Types.Signature");
+
+      With_Entity ("D_Bus.Support.Hashes");
       New_Line;
 
       Start_Package ("D_Bus.Generated_Types");
@@ -333,8 +345,8 @@ package body Codegen.Types is
                        ("Pkg_" & Name,
                         "new Ada.Containers.Hashed_Maps (" &
                         Get_Ada_Type (+TD.Dict_Key_Type_Code) & ", " &
-                        Get_Ada_Type (+TD.Dict_Element_Type_Code) &
-                        ", Ada.Strings.Unbounded.Hash, ""="")");
+                        Get_Ada_Type (+TD.Dict_Element_Type_Code) & ", " &
+                        (+TD.Dict_Key_Hash_Function) & ", ""="")");
 
                      Declare_Subtype (Name, "Pkg_" & Name & ".Map");
                      Use_Type (Name);
@@ -386,4 +398,13 @@ package body Codegen.Types is
       end;
       End_Package ("D_Bus.Generated_Types");
    end Print;
+
+   -------------------
+   -- Print_Neutral --
+   -------------------
+   procedure Print_Neutral (Pkg : Ada_Package_Type) is
+   begin
+      Start_Package (+Pkg.Name);
+      End_Package (+Pkg.Name);
+   end Print_Neutral;
 end Codegen.Types;

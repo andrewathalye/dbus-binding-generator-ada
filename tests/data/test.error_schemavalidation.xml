@@ -1,4 +1,0 @@
-<node name="/test/Node">
-   <!-- Invalid interface name -->
-   <interface name="/"/>
-</node>

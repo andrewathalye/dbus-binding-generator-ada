@@ -145,7 +145,8 @@ package body Codegen.Output.Subprograms is
    begin
       return
         Method_Handler_Name (M) & " (O : in out " & (+Pkg.Name) &
-        ".Child_Interface'Class;" & " Request : D_Bus.Messages.Message_Type;" &
+        ".Server.Child_Interface'Class;" &
+        " Request : D_Bus.Messages.Message_Type;" &
         " Reply : out D_Bus.Messages.Message_Type)";
    end Method_Handler_Signature;
 

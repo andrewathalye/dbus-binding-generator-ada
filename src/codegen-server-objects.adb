@@ -52,9 +52,12 @@ package body Codegen.Server.Objects is
       Use_Pragma ("Warnings (Off, ""-gnatwu"")");
       Use_Pragma ("Warnings (Off, ""-gnatwr"")");
       Use_Pragma ("Warnings (Off, ""-gnatwm"")");
+      Use_Pragma ("Warnings (Off, ""-gnatwf"")");
 
       With_Entity ("Ada.Strings.Unbounded");
       With_Entity ("Interfaces");
+      With_Entity ("GNAT.OS_Lib");
+
       With_Entity ("D_Bus.Messages");
       With_Entity ("D_Bus.Arguments.Basic");
       With_Entity ("D_Bus.Arguments.Containers");
@@ -65,7 +68,7 @@ package body Codegen.Server.Objects is
 
       --  With all interfaces
       for Pkg of Pkgs loop
-         With_Entity (+Pkg.Name);
+         With_Entity ((+Pkg.Name) & ".Server");
       end loop;
 
       Start_Package_Body ("D_Bus.Generated_Objects");
@@ -161,7 +164,8 @@ package body Codegen.Server.Objects is
                   begin
                      Call
                        (Method_Handler_Name (M) & "(" & (+Pkg.Name) &
-                        ".Child_Interface'Class" & "(O), Request, Reply)");
+                        ".Server.Child_Interface'Class" &
+                        "(O), Request, Reply)");
 
                      Return_Null;
                   end;
@@ -183,7 +187,8 @@ package body Codegen.Server.Objects is
          Begin_Code;
          --  Add handlers for each interface implemented by `O`
          for Pkg of Pkgs loop
-            Start_If ("O.all in " & (+Pkg.Name) & ".Child_Interface'Class");
+            Start_If
+              ("O.all in " & (+Pkg.Name) & ".Server.Child_Interface'Class");
             begin
                Call
                  ("Handlers.Insert (""" & (+Pkg.Real_Name) & """, " &

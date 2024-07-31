@@ -94,7 +94,7 @@ package body Codegen.Binding is
                --  D_Bus_Name.Append (<Bind(K),Bind(V)>)
             when Ordered_Dict_Kind | Hashed_Dict_Kind =>
                --!pp off
-               Start_Map_For_Loop ("Cursor", Ada_Name);
+               Start_Map_For_Loop ("Cursor_" & Name, Ada_Name);
                   Declare_Code;
                      Declare_Entity
                        ("Dict_Key",
@@ -106,12 +106,14 @@ package body Codegen.Binding is
                      Bind_To_DBus_Inner
                        (TD        =>
                            Types (TD.Dict_Key_Type_Code),
-                        Ada_Name  => "Pkg_" & Name & ".Key (Cursor)",
+                        Ada_Name  =>
+                           "Pkg_" & Name & ".Key (Cursor_" & Name & ")",
                         DBus_Name => "Dict_Key");
                      Bind_To_DBus_Inner
                        (TD =>
                            Types (TD.Dict_Element_Type_Code),
-                        Ada_Name  => "Pkg_" & Name & ".Element (Cursor)",
+                        Ada_Name  =>
+                           "Pkg_" & Name & ".Element (Cursor_" & Name & ")",
                         DBus_Name => "Dict_Element_" & Name);
                      Call
                        (DBus_Name &

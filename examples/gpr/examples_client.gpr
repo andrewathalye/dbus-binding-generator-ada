@@ -1,7 +1,5 @@
 project Examples_Client extends "shared" is
-   for Source_Dirs use Shared'Source_Dirs & ("../generated/client");
-
-   for Object_Dir use "../obj/client/";
    for Exec_Dir use Shared'Exec_Dir;
+   for Object_Dir use Shared'Object_Dir;
    for Main use ("mpris_client.adb");
 end Examples_Client;

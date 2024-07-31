@@ -1,6 +1,6 @@
-<node name="/test/Node">
-   <interface name="test.Node">
-      <method name="TestError">
+<node>
+   <interface name="com.example.TestError">
+      <method name="Error">
          <!-- Dict keys must be basic types -->
          <arg type="a{asv}"/>
       </method>

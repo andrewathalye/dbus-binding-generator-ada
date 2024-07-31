@@ -45,7 +45,7 @@ private
    --  Types
    type Root_Object is abstract tagged limited record
       Valid : Boolean := False;
-      Node : D_Bus.Types.Obj_Path;
+      Node  : D_Bus.Types.Obj_Path;
    end record;
 
    --  Internal Methods

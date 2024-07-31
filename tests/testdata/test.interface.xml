@@ -1,4 +1,5 @@
-<node name="/test/Node">
+<!-- Test root node named / -->
+<node name="/">
    <!-- Test builtin server interface for OFDP -->
    <interface name="org.freedesktop.DBus.Properties">
       <method name="Set">
@@ -19,9 +20,16 @@
       </signal>
    </interface>
 
-   <interface name="test.Duplicate"/>
+   <interface name="tk.zenithseeker.Control">
+      <method name="Quit"/>
+      <signal name="QuitSignal">
+         <arg name="message" type="s"/>
+      </signal>
+   </interface>
 
-   <interface name="test.Node">
+   <interface name="com.example.Duplicate"/>
+
+   <interface name="com.example.Interface">
       <method name="TestEmpty"/>
 
       <method name="TestBasicTypes">
@@ -87,30 +95,26 @@
          <arg name="Interfaces" type="s"/>
       </method>
 
-      <signal name="TestSignal">
-         <arg name="targ" type="s"/>
-      </signal>
-
       <!-- Test properties -->
       <property name="TestPropertyReadOnly" type="s" access="read"/>
       <property name="TestPropertyWriteOnly" type="s" access="write"/>
       <property name="TestProperty" type="s" access="readwrite"/>
 
-      <annotation name="test.annotation" value="Test"/>
+      <annotation name="com.example.Annotation" value="Test"/>
    </interface>
 
-   <node name="/test/node/Interior">
-      <interface name="test.node.Interior">
+   <node name="Interior">
+      <interface name="com.example.Interior">
          <method name="Method"/>
       </interface>
 
-      <interface name="test.Duplicate"/>
+      <interface name="com.example.Duplicate"/>
    </node>
 
-   <node name="/test/node/InteriorWithEmpty">
-      <interface name="test.node.InteriorWithEmpty"/>
+   <node name="InteriorWithEmpty">
+      <interface name="com.example.InteriorWithEmpty"/>
    </node>
 
    <!-- Test empty interior nodes and nodes named "/" -->
-   <node name="/"/>
+   <node name="Empty"/>
 </node>

@@ -1,0 +1,4 @@
+<node>
+   <!-- Invalid name for a child node -->
+   <node name="/"/>
+</node>

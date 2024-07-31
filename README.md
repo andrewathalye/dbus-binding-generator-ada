@@ -9,33 +9,31 @@ Use `gnatstub` and `gnatpp` to clean up the generated code as desired.
 
 TODO
 ----
-Allow mixing servers and clients in the same application.
-At the moment it is possible but requires manually modifying bindings.
-Handle annotations and allow custom type names.
+Add annotation support as seen below
+
+Let the program work even without `data/introspect.xsd`
+
+Make sure signals don’t cause issues in mixed-mode applications
 
 Subdirectories
 --------------
-`data/`: XML schemas and D\_Bus specifications
-`supportlib/`: The support library
-`examples/`: Example code to verify that building clients and servers works.
-`tests/`: Test scripts to verify coverage and generated servers.
+`data/`: The XSD schema for specification validation
+`supportlib/`: A support library for Object-Oriented D\_Bus
+`examples/`: Example code for the client and server bindings
+`tests/`: Test scripts for the binder and generated bindings.
 
 Dev Tools
 ---------
-`./cycle.sh` perform one full build and generation cycle on "$@". The output will go to `examples/generated/`
 `./format.sh` format the binding generator code using `gnatpp`
 
-Client Binding Usage
---------------------
-See `examples/src/mpris.adb` for an example client application.
-This duplicates the functionality of `playerctl -a metadata`.
-
-Server Binding Usage
---------------------
-See `examples/src/mpris_server.adb` for an example server application.
-You can verify that it works by calling `playerctl -a metadata`
+Supported Annotations
+---------------------
+| Annotation                                         | Values                            | Meaning                                                                      |
+| :------------------------------------------------- | :-------------------------------- | :--------------------------------------------------------------------------- |
+| `org.freedesktop.DBus.Deprecated`                  | `true, false`                     | Emits `pragma Obsolescent` for the entity in question.                       |
+| `org.freedesktop.DBus.Method.NoReply`              | `true, false`                     | Suppresses producing or waiting for a reply for a method call.               |
+| `org.freedesktop.DBus.Property.EmitsChangedSignal` | `true, invalidates, const, false` | Controls whether `PropertiesChanged` is emitted when a property is modified. |
 
 Licence
 -------
-This code is GPL-licensed, except that the DBus support libraries `D_Bus.Support` and `D_Bus.Extra` are both
-GPL with Linking Exception (as per the GNAT source code).
+This code is GPL-licensed, except that the DBus support library `D\_Bus.Support` is licensed the same as D\_Bus/Ada (GPL with GNAT Linking Exception).

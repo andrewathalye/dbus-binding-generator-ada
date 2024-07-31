@@ -4,9 +4,10 @@
            "command": "ada_language_server",
            "settings":{
               "ada": {
-                 "projectFile": "dbus_binding_generator_ada.gpr",
+                 "projectFile_": "dbus_binding_generator_ada.gpr",
                  "projectFile_": "supportlib/dbusada_support.gpr",
-                 "projectFile_": "examples/examples.gpr"
+                 "projectFile_": "examples/examples.gpr",
+                 "projectFile": "tests/bindings/bindings.gpr"
               }
            },
            "filetypes": [

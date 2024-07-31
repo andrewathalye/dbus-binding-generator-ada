@@ -23,6 +23,8 @@ with Schema.Validators;
 with Parsing;
 with Codegen;
 with Codegen.Maps;
+
+--  Types Codegen
 with Codegen.Types;
 
 --  Client / Server Codegen
@@ -31,6 +33,7 @@ with Codegen.Server.Iface;
 with Codegen.Server.Objects;
 
 --  Utils
+with Constants;
 with Shared; use Shared;
 with Debug;  use Debug;
 
@@ -53,7 +56,7 @@ procedure DBus_Binding_Generator_Ada is
    begin
       Put_Line
         ("Usage: " & Ada.Command_Line.Command_Name &
-         " [-client | -server | -types] [input files]");
+         " [-client | -server | -types] [--] [input files]");
       GNAT.OS_Lib.OS_Exit (-1);
    end Show_Help;
 
@@ -84,35 +87,41 @@ procedure DBus_Binding_Generator_Ada is
 begin
    Put_Debug ("dbus_binding_generator_ada");
 
-   ---------------
-   -- Arguments --
-   ---------------
+   -------------------------
+   -- Arguments and Files --
+   -------------------------
    loop
       begin
-         case GNAT.Command_Line.Getopt ("client server types help -help") is
+         case GNAT.Command_Line.Getopt ("* - client server types help -help")
+         is
             when 'c' =>
                Mode := Client;
-               exit;
             when 's' =>
                Mode := Server;
-               exit;
             when 't' =>
                Mode := Types;
+            when '-' =>
+               --  Stop taking arguments
+               if GNAT.Command_Line.Full_Switch = "-" then
+                  exit;
+               elsif GNAT.Command_Line.Full_Switch = "-help" then
+                  Show_Help;
+               end if;
+            when 'h' =>
+               Show_Help;
+            when '*' =>
+               File_List.Append (GNAT.Command_Line.Full_Switch);
+            when ASCII.NUL =>
                exit;
             when others =>
-               Show_Help;
+               null;
          end case;
-      exception
-         when GNAT.Command_Line.Invalid_Switch =>
-            GNAT.Command_Line.Try_Help;
-            Error_Message ("Invalid switch");
-            return;
       end;
    end loop;
 
-   -----------
-   -- Files --
-   -----------
+   ----------------
+   -- Files Only --
+   ----------------
    loop
       case GNAT.Command_Line.Getopt ("*") is
          when '*' =>
@@ -120,7 +129,7 @@ begin
          when ASCII.NUL =>
             exit;
          when others =>
-            raise Program_Error;
+            null;
       end case;
    end loop;
 
@@ -215,6 +224,46 @@ begin
       end loop;
    end;
 
+   -----------------
+   -- Check nodes --
+   -----------------
+   declare
+      procedure Recurse_Node (Node : in out Parsing.Node_Type);
+      procedure Recurse_Node (Node : in out Parsing.Node_Type) is
+         Has_Properties_Interface : Boolean := False;
+      begin
+         for Child_Node of Node.Child_Nodes loop
+            Recurse_Node (Child_Node.all);
+         end loop;
+
+         --  Search for a properties interface
+         for I of Node.Interfaces loop
+            if +I.Name = Constants.Properties_Interface then
+               Has_Properties_Interface := True;
+               exit;
+            end if;
+         end loop;
+
+         --  Ensure no interface has properties defined if
+         --  there is no properties interface
+         if not Has_Properties_Interface then
+            for I of Node.Interfaces loop
+               if not I.Properties.Is_Empty then
+                  Error_Message
+                    ("CHECK ERROR: Interface " & (+I.Name) &
+                     " has properties, but its parent node" &
+                     " does not implement " & Constants.Properties_Interface);
+               end if;
+            end loop;
+         end if;
+      end Recurse_Node;
+   begin
+      for Top_Level_Node of Node_List loop
+         Recurse_Node (Top_Level_Node);
+      end loop;
+   end;
+   Put_Debug ("All nodes checked and semantically valid");
+
    -------------------
    -- Generate code --
    -------------------
@@ -264,6 +313,7 @@ begin
                Types : Codegen.Types.Ada_Type_Declaration_Map;
             begin
                for Pkg of Pkgs loop
+                  Codegen.Types.Print_Neutral (Pkg);
                   Codegen.Types.Add_Types (Types, Pkg);
                end loop;
 

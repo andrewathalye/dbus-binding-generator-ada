@@ -65,9 +65,9 @@ package body D_Bus.Support is
       return To_String (Buf);
    end Get_Signature;
 
------------------
--- Elaboration --
------------------
+   -----------------
+   -- Elaboration --
+   -----------------
 begin
    declare
       use type dbus_types_h.dbus_bool_t;

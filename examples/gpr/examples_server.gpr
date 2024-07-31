@@ -1,7 +1,5 @@
 project Examples_Server extends "shared" is
-   for Source_Dirs use Shared'Source_Dirs & ("../generated/server");
-
-   for Object_Dir use "../obj/server/";
    for Exec_Dir use Shared'Exec_Dir;
+   for Object_Dir use Shared'Object_Dir;
    for Main use ("mpris_server.adb");
 end Examples_Server;

@@ -43,10 +43,11 @@ package body Codegen.Client.Iface is
 
       --  Package Spec
       --!pp off
-      Start_Package (+Pkg.Name);
+      Start_Package ((+Pkg.Name) & ".Client");
          Declare_Type
            ("Child_Interface",
             "limited interface and D_Bus.Support.Client.Client_Interface");
+         New_Line;
 
          if not Pkg.Methods.Is_Empty then
             Large_Comment ("Methods");
@@ -79,7 +80,7 @@ package body Codegen.Client.Iface is
                New_Line;
             end loop;
          end if;
-      End_Package (+Pkg.Name);
+      End_Package ((+Pkg.Name) & ".Client");
       --!pp on
    end Print_Spec;
 
@@ -101,7 +102,7 @@ package body Codegen.Client.Iface is
       With_Entity ("D_Bus.Messages");
 
       --  Package
-      Start_Package_Body (+Pkg.Name);
+      Start_Package_Body ((+Pkg.Name) & ".Client");
       begin
          --  Declares
          Declare_Entity
@@ -284,7 +285,7 @@ package body Codegen.Client.Iface is
             end if;
          end loop;
       end;
-      End_Package (+Pkg.Name);
+      End_Package ((+Pkg.Name) & ".Client");
    end Print_Body;
 
    procedure Print (Pkg : Ada_Package_Type) is
