@@ -1,3 +1,17 @@
-aggregate project Bindings is
-   for Project_Files use ("./gpr/bindings_client.gpr", "./gpr/bindings_server.gpr");
+with "dbusada";
+with "../../supportlib/dbusada_support";
+
+project Bindings is
+   for Object_Dir use "obj/";
+   for Exec_Dir use "bin/";
+   for Source_Dirs use ("generated/", "src/");
+   for Main use ("bindings_client.adb", "bindings_server.adb", "bindings_mixed.adb");
+
+   package Compiler is
+      for Default_Switches ("Ada") use ("-g", "-Og", "-gnata", "-gnatVa", "-gnatwa", "-gnatwe", "-gnatyy");
+   end Compiler;
+
+   package Binder is
+      for Default_Switches ("Ada") use ("-Es");
+   end Binder;
 end Bindings;

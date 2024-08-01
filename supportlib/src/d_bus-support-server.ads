@@ -12,17 +12,26 @@ package D_Bus.Support.Server is
    -- Base Subprograms --
    ----------------------
    procedure Request_Name (Name : String);
-   --  Set the global D_Bus name for this application’s connection.
+   --  Set the global D_Bus name for the default internal connection.
    --  A connection can have multiple names, but each name can only
    --  be used by one application.
+   --
+   --  Use `D_Bus.Connection.Request_Name` to request a name on an
+   --  arbitrary connection.
 
+   procedure Release_Name
+     (Connection : D_Bus.Connection.Connection_Type; Name : String);
    procedure Release_Name (Name : String);
    --  Release the given name which was acquired earlier with `Request_Name`.
+   --  If `Connection` is not specified, the internal connection will be used.
 
    procedure Setup_With_G_Main;
-   --  Set up the global D_Bus connection to work with Glib’s Gmain event
+   --  Set up the default D_Bus connection to work with Glib’s Gmain event
    --  loop. This is the recommended (and supported) way to interact with
    --  libdbus.
+   --
+   --  Use `D_Bus.Connection.G_Main.Setup_With_G_Main` if you need to set up
+   --  an arbitrary connection.
 
    procedure Run_Iteration;
    --  Run a blocking iteration of the Glib main loop.
@@ -91,8 +100,7 @@ package D_Bus.Support.Server is
    type Server_Object is
      abstract limited new Root_Object and Server_Interface with private;
    --  The root type of all serverside D_Bus objects.
-   --  This is distinct from Client_Object to allow clientside and serverside
-   --  bindings to be used by the same application.
+   --  See `Server_Interface` and `Root_Object` for more documentation.
 
    -------------------------
    -- Object Registration --
@@ -131,7 +139,7 @@ package D_Bus.Support.Server is
    --  Once registered, `O` will be managed by the internal server connection.
    --  You must first call `O.Unregister` before calling `O.Destroy`.
 
-   procedure Unregister (O : Server_Object'Class);
+   procedure Unregister (O : in out Server_Object'Class);
    --  Unregister `O` with the D_Bus Connection. `O` will remain
    --  a valid `Server_Object` after this, and may have its name changed
    --  or be registered again with different handlers.
@@ -139,31 +147,41 @@ package D_Bus.Support.Server is
    --------------------
    -- Implementation --
    --------------------
-   procedure Send_Signal
+   overriding procedure Send_Signal
      (O    : Server_Object; Iface : String; Name : String;
       Args : D_Bus.Arguments.Argument_List_Type);
 
-   procedure Set_Property
+   overriding procedure Set_Property
      (O       : in out Server_Object; Iface : String; Name : String;
       Value   :        D_Bus.Arguments.Containers.Variant_Type;
       PAccess :        Access_Type := Unchanged);
 
-   procedure Get_Property
+   overriding procedure Get_Property
      (O        :     Server_Object; Iface : String; Name : String;
       Value    : out D_Bus.Arguments.Containers.Variant_Type;
       Internal :     Boolean := False);
 
-   procedure Get_All_Properties
+   overriding procedure Get_All_Properties
      (O          :     Server_Object; Iface : String;
       Properties : out D_Bus.Arguments.Containers.Array_Type);
 
    --------------------------------
    -- Constructors / Destructors --
    --------------------------------
-   procedure Create (O : out Server_Object; Node : D_Bus.Types.Obj_Path);
-   --  Create a new Server_Object
+   overriding procedure Create
+     (O          : out Server_Object; Node : D_Bus.Types.Obj_Path;
+      Connection :     D_Bus.Connection.Connection_Type);
+
+   overriding procedure Create
+     (O : out Server_Object; Node : D_Bus.Types.Obj_Path);
+   --  Create a new `Server_Object` with path `Node`. If `Connection` is not
+   --  given, the default internal conenction to the D_Bus session bus will
+   --  be used.
 
    overriding procedure Destroy (O : in out Server_Object);
+   --  See `D_Bus.Support.Destroy` for the full details.
+   --
+   --  `O` must _not_ be registered prior to calling `Destroy`
 private
    -------------------
    -- Server_Object --
@@ -189,5 +207,6 @@ private
    type Server_Object is
    limited new Root_Object and Server_Interface with record
       Properties : Property_Maps.Map;
+      Registered : Boolean := False;
    end record;
 end D_Bus.Support.Server;

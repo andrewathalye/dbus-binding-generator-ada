@@ -1,11 +1,11 @@
 pragma Ada_2012;
 
+with Ada.Containers.Doubly_Linked_Lists;
 with Interfaces.C;
 with System;
 with System.Address_To_Access_Conversions;
 
 with D_Bus.Arguments.Basic;
-with D_Bus.Messagebox;
 
 with dbus_connection_h;
 with dbus_message_h;
@@ -39,20 +39,64 @@ package body D_Bus.Support.Client is
       Check_Signature (Argument.Get_Signature, Signature);
    end Check_Signature;
 
-   ---------------
-   -- Internals --
-   ---------------
-   --  Shared State (Needs Locking)
-   Messages : D_Bus.Messagebox.Msg_List;
-
-   --  Callback Implementation
-   type Signal_Data_Pack is record
-      Ran : Boolean := False;
-      Msg : D_Bus.Messages.Message_Type;
+   ----------------------
+   -- Signal Internals --
+   ----------------------
+   type Message_Reference is record
+      Connection : D_Bus.Connection.Connection_Type;
+      Msg        : D_Bus.Messages.Message_Type;
    end record;
 
-   package SDP_Conversions is new System.Address_To_Access_Conversions
-     (Signal_Data_Pack);
+   package MRL is new Ada.Containers.Doubly_Linked_Lists (Message_Reference);
+
+   protected Msg_Box is
+      procedure Length (Length : out Ada.Containers.Count_Type);
+      procedure Enqueue (R : Message_Reference);
+      procedure Consume (R : out Message_Reference);
+      entry Lock;
+      entry Unlock;
+   private
+      Data   : MRL.List;
+      Locked : Boolean := False;
+   end Msg_Box;
+
+   protected body Msg_Box is
+      procedure Length (Length : out Ada.Containers.Count_Type) is
+      begin
+         Length := Data.Length;
+      end Length;
+
+      procedure Enqueue (R : Message_Reference) is
+      begin
+         Data.Append (R);
+      end Enqueue;
+
+      procedure Consume (R : out Message_Reference) is
+         Pos : MRL.Cursor := Data.First;
+      begin
+         if not MRL.Has_Element (Pos) then
+            raise D_Bus_Error with "No message in Msg_Box!";
+         end if;
+
+         R := MRL.Element (Pos);
+         Data.Delete (Pos);
+      end Consume;
+
+      entry Lock when not Locked is
+      begin
+         Locked := True;
+      end Lock;
+
+      entry Unlock when Locked is
+      begin
+         Locked := False;
+      end Unlock;
+   end Msg_Box;
+
+   --  Callback Implementation
+   type Message_Access is access all D_Bus.Messages.Message_Type;
+   package MA_Conversions is new System.Address_To_Access_Conversions
+     (D_Bus.Messages.Message_Type);
 
    function Call_Back
      (D_Conn : access dbus_connection_h.DBusConnection;
@@ -67,14 +111,22 @@ package body D_Bus.Support.Client is
    is
       pragma Unreferenced (D_Conn);
 
-      M : constant D_Bus.Messages.Message_Type := D_Bus.Messages.Create (Msg);
-      SDP : constant access Signal_Data_Pack     :=
-        SDP_Conversions.To_Pointer (Usr_Data);
-   begin
-      SDP.Msg := M;
-      SDP.Ran := True;
+      use type D_Bus.Messages.Message_Variant;
 
-      return dbus_shared_h.DBUS_HANDLER_RESULT_HANDLED;
+      M : constant D_Bus.Messages.Message_Type := D_Bus.Messages.Create (Msg);
+      Result : constant Message_Access              :=
+        Message_Access (MA_Conversions.To_Pointer (Usr_Data));
+   begin
+      Result.all := D_Bus.Messages.Null_Message;
+
+      --  Ref the message here so it doesn’t get deallocated
+      if D_Bus.Messages.Get_Type (M) = D_Bus.Messages.Signal then
+         Result.all := D_Bus.Messages.Ref (M);
+         return dbus_shared_h.DBUS_HANDLER_RESULT_HANDLED;
+      end if;
+
+      --  Don’t consume anything but signals
+      return dbus_shared_h.DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
    end Call_Back;
 
    procedure Null_Free_Data (Item : System.Address) is null;
@@ -92,19 +144,13 @@ package body D_Bus.Support.Client is
    begin
       Assert_Valid (O);
 
-      if O.Signals.Contains (Iface & "/" & Name) then
+      if O.Signals.Contains (Iface & ":" & Name) then
          raise D_Bus_Error with "Asked to register duplicate signal.";
       end if;
 
-      --  Note: changing global state
-      D_Bus_Lock.Acquire;
-      Critical_Section :
-      begin
-         D_Bus.Connection.Add_Match (Connection, Match_Rule);
-      end Critical_Section;
-      D_Bus_Lock.Release;
+      D_Bus.Connection.Add_Match (O.Connection, Match_Rule);
 
-      O.Signals.Insert (Iface & "/" & Name, Match_Rule);
+      O.Signals.Insert (Iface & ":" & Name, Match_Rule);
    end Register_Signal;
 
    procedure Unregister_Signal
@@ -120,34 +166,31 @@ package body D_Bus.Support.Client is
          D_Bus.Arguments.Append (Args, +Rule);
          Discard :=
            D_Bus.Connection.Call_Blocking
-             (Connection => Connection, Destination => "org.freedesktop.DBus",
-              Path       => +"/org/freedesktop/DBus",
-              Iface      => "org.freedesktop.DBus", Method => "RemoveMatch",
-              Args       => Args);
+             (Connection  => O.Connection,
+              Destination => "org.freedesktop.DBus",
+              Path        => +"/org/freedesktop/DBus",
+              Iface       => "org.freedesktop.DBus", Method => "RemoveMatch",
+              Args        => Args);
       end Remove_Match;
    begin
       Assert_Valid (O);
-      if not O.Signals.Contains (Iface & "/" & Name) then
+      if not O.Signals.Contains (Iface & ":" & Name) then
          raise D_Bus_Error with "Asked to unregister nonexisting signal.";
       end if;
 
-      --  Note: Changing global Connection state
-      D_Bus_Lock.Acquire;
-      Critical_Section :
-      begin
-         Remove_Match (O.Signals (Iface & "/" & Name));
-      end Critical_Section;
-      D_Bus_Lock.Release;
+      Remove_Match (O.Signals (Iface & ":" & Name));
 
-      O.Signals.Delete (Iface & "/" & Name);
+      O.Signals.Delete (Iface & ":" & Name);
    end Unregister_Signal;
 
-   procedure Await_Signal
-     (O : Client_Object; Msg : out D_Bus.Messages.Message_Type; Iface : String;
-      Name : String)
+   ------------------
+   -- Await_Signal --
+   ------------------
+   function Await_Signal
+     (O : Client_Object; Iface : String; Name : String)
+      return D_Bus.Messages.Message_Type
    is
-      use type Interfaces.C.int;
-      use type dbus_types_h.dbus_bool_t;
+      use type D_Bus.Messages.Message_Type;
 
       function Is_Match
         (Msg   : D_Bus.Messages.Message_Type; Node : D_Bus.Types.Obj_Path;
@@ -163,73 +206,94 @@ package body D_Bus.Support.Client is
            Get_Path (Msg) = To_String (Node) and
            Get_Interface (Msg) = Iface and Get_Member (Msg) = Member;
       end Is_Match;
-
-      --  Variables
-      CO    : Connection_Overlay;
-      SDP   : aliased Signal_Data_Pack;
-      D_Res : dbus_types_h.dbus_bool_t;
    begin
       Assert_Valid (O);
-      CO := Convert (Connection);
 
-      --  Note: Accessing global variables
-      D_Bus_Lock.Acquire;
-      Critical_Section :
+      --  It is an error to wait for a signal which hasn’t been registered.
+      if not O.Signals.Contains (Iface & ":" & Name) then
+         raise D_Bus_Error
+           with "Cannot wait for unregistered signal " & Iface & "." & Name;
+      end if;
+
+      --  Check for a cached message first
+      Search_Cache :
+      declare
+         use type D_Bus.Connection.Connection_Type;
+
+         Ref    : Message_Reference;
+         Length : Ada.Containers.Count_Type;
       begin
-         --  Check queued messages
-         for Q_Msg of Messages loop
-            if Is_Match (Q_Msg, O.Node, Iface, Name) then
-               declare
-                  C : D_Bus.Messagebox.ML.Cursor;
-               begin
-                  C := Messages.Find (Q_Msg);
-                  Messages.Delete (C);
-               end;
+         Msg_Box.Length (Length);
 
-               Msg := Q_Msg;
-               return;
+         --  Stop any other tasks from trying to consume messages
+         Msg_Box.Lock;
+         for I in 1 .. Length loop
+            Msg_Box.Consume (Ref);
+
+            if Ref.Connection = O.Connection
+              and then Is_Match (Ref.Msg, O.Node, Iface, Name)
+            then
+               Msg_Box.Unlock;
+
+               --  Unref the message to stop memory leaks
+               D_Bus.Messages.Unref (Ref.Msg);
+               return Ref.Msg;
+            else
+               Msg_Box.Enqueue (Ref);
             end if;
          end loop;
+         Msg_Box.Unlock;
+      end Search_Cache;
 
+      Wait_For_Signal :
+      declare
+         use type Interfaces.C.int;
+         use type dbus_types_h.dbus_bool_t;
+
+         CO           : constant Connection_Overlay := Convert (O.Connection);
+         Callback_Msg : aliased D_Bus.Messages.Message_Type;
+      begin
          --  Set up filter
-         D_Res :=
-           dbus_connection_h.dbus_connection_add_filter
+         if dbus_connection_h.dbus_connection_add_filter
              (connection => CO.Thin_Connection, c_function => Call_Back'Access,
-              user_data          => SDP'Address,
-              free_data_function => Null_Free_Data'Access);
-
-         if D_Res = 0 then
+              user_data          => Callback_Msg'Address,
+              free_data_function => Null_Free_Data'Access) =
+           0
+         then
             raise D_Bus_Error with "Could not add connection filter";
          end if;
 
          --  Dispatch
+         Dispatch :
          loop
-            SDP.Ran := False;
-            D_Res   :=
-              dbus_connection_h.dbus_connection_read_write_dispatch
-                (CO.Thin_Connection, -1);
+            Callback_Msg := D_Bus.Messages.Null_Message;
 
-            if D_Res = 0 then
+            if dbus_connection_h.dbus_connection_read_write_dispatch
+                (CO.Thin_Connection, -1) =
+              0
+            then
                raise D_Bus_Error with "Dispatch failed";
             end if;
 
-            --  Exit if the message matches the pattern
-            if SDP.Ran then
-               if Is_Match (SDP.Msg, O.Node, Iface, Name) then
-                  exit;
+            --  Exit if the message matches or save it for later.
+            if Callback_Msg /= D_Bus.Messages.Null_Message then
+               if Is_Match (Callback_Msg, O.Node, Iface, Name) then
+                  exit Dispatch;
                else
-                  Messages.Append (SDP.Msg);
+                  Msg_Box.Enqueue ((O.Connection, Callback_Msg));
                end if;
             end if;
-         end loop;
+         end loop Dispatch;
+
+         --  Unref the message to stop memory leaks
+         D_Bus.Messages.Unref (Callback_Msg);
 
          --  Remove filter
          dbus_connection_h.dbus_connection_remove_filter
-           (CO.Thin_Connection, Call_Back'Access, SDP'Address);
-      end Critical_Section;
-      D_Bus_Lock.Release;
+           (CO.Thin_Connection, Call_Back'Access, Callback_Msg'Address);
 
-      Msg := SDP.Msg;
+         return Callback_Msg;
+      end Wait_For_Signal;
    end Await_Signal;
 
    ----------------
@@ -241,8 +305,6 @@ package body D_Bus.Support.Client is
       return D_Bus.Arguments.Argument_List_Type
    is
       use Ada.Strings.Unbounded;
-
-      Result : D_Bus.Arguments.Argument_List_Type;
    begin
       Assert_Valid (O);
       if O.Destination = Null_Unbounded_String then
@@ -250,19 +312,11 @@ package body D_Bus.Support.Client is
            with "Asked to call method on object with no destination.";
       end if;
 
-      --  Note: accessing global Connection
-      D_Bus_Lock.Acquire;
-      Critical_Section :
-      begin
-         Result :=
-           D_Bus.Connection.Call_Blocking
-             (Connection  => Connection,
-              Destination => To_String (O.Destination), Path => O.Node,
-              Iface       => Iface, Method => Method, Args => Args);
-      end Critical_Section;
-      D_Bus_Lock.Release;
-
-      return Result;
+      return
+        D_Bus.Connection.Call_Blocking
+          (Connection  => O.Connection,
+           Destination => To_String (O.Destination), Path => O.Node,
+           Iface       => Iface, Method => Method, Args => Args);
    end Call_Blocking;
 
    procedure Set_Property
@@ -310,12 +364,21 @@ package body D_Bus.Support.Client is
    --------------------------------
    -- Constructor and Destructor --
    --------------------------------
-   procedure Create (O : out Client_Object; Node : D_Bus.Types.Obj_Path) is
+   procedure Create
+     (O          : out Client_Object; Node : D_Bus.Types.Obj_Path;
+      Connection :     D_Bus.Connection.Connection_Type)
+   is
    begin
       Assert_Invalid (O);
 
-      O.Node  := Node;
-      O.Valid := True;
+      O.Connection := Connection;
+      O.Node       := Node;
+      O.Valid      := True;
+   end Create;
+
+   procedure Create (O : out Client_Object; Node : D_Bus.Types.Obj_Path) is
+   begin
+      Create (O, Node, Internal_Connection);
    end Create;
 
    procedure Set_Destination (O : in out Client_Object; Destination : String)
@@ -323,15 +386,22 @@ package body D_Bus.Support.Client is
       use Ada.Strings.Unbounded;
    begin
       Assert_Valid (O);
+
       O.Destination := To_Unbounded_String (Destination);
    end Set_Destination;
 
    procedure Destroy (O : in out Client_Object) is
+      use D_Bus.Types;
    begin
       Assert_Valid (O);
 
+      if not O.Signals.Is_Empty then
+         raise D_Bus_Error
+           with "Cannot destroy object " & To_String (O.Node) &
+           " because it has registered signals.";
+      end if;
+
       O.Valid       := False;
       O.Destination := Ada.Strings.Unbounded.Null_Unbounded_String;
-      O.Signals.Clear;
    end Destroy;
 end D_Bus.Support.Client;

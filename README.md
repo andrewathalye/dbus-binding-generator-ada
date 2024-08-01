@@ -13,8 +13,6 @@ Add annotation support as seen below
 
 Let the program work even without `data/introspect.xsd`
 
-Make sure signals don’t cause issues in mixed-mode applications
-
 Subdirectories
 --------------
 `data/`: The XSD schema for specification validation

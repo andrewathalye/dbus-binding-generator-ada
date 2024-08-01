@@ -52,9 +52,9 @@ package D_Bus.Support.Client is
      (O : in out Client_Interface; Iface : String; Name : String) is abstract;
    --  Unregister a signal that was stored internally.
 
-   procedure Await_Signal
-     (O     : Client_Interface; Msg : out D_Bus.Messages.Message_Type;
-      Iface : String; Name : String) is abstract;
+   function Await_Signal
+     (O : Client_Interface; Iface : String; Name : String)
+      return D_Bus.Messages.Message_Type is abstract;
    --  Return the message for a registered signal with
    --  interface `Iface` and name `Name`.
 
@@ -78,6 +78,8 @@ package D_Bus.Support.Client is
    ----------------------------------------
    type Client_Object is
      abstract limited new Root_Object and Client_Interface with private;
+   --  The progenitor type of all D_Bus client objects.
+   --  Also see `Client_Interface` and `Root_Object` for more documentation.
 
    overriding procedure Register_Signal
      (O : in out Client_Object; Iface : String; Name : String);
@@ -85,9 +87,9 @@ package D_Bus.Support.Client is
    overriding procedure Unregister_Signal
      (O : in out Client_Object; Iface : String; Name : String);
 
-   overriding procedure Await_Signal
-     (O : Client_Object; Msg : out D_Bus.Messages.Message_Type; Iface : String;
-      Name : String);
+   overriding function Await_Signal
+     (O : Client_Object; Iface : String; Name : String)
+      return D_Bus.Messages.Message_Type;
 
    overriding function Call_Blocking
      (O    : Client_Object; Iface : String; Method : String;
@@ -105,11 +107,24 @@ package D_Bus.Support.Client is
    ----------------------------------
    -- Constructors and Destructors --
    ----------------------------------
-   procedure Create (O : out Client_Object; Node : D_Bus.Types.Obj_Path);
+   overriding procedure Create
+     (O          : out Client_Object; Node : D_Bus.Types.Obj_Path;
+      Connection :     D_Bus.Connection.Connection_Type);
+
+   overriding procedure Create
+     (O : out Client_Object; Node : D_Bus.Types.Obj_Path);
+   --  Create a new object `O` with path `Node`. If `Connection` is not
+   --  specified, it will use a connection to the internal D_Bus session bus.
 
    procedure Set_Destination (O : in out Client_Object; Destination : String);
+   --  Set the D_Bus destination associated with `O`. By default, the
+   --  object has no destination and messages cannot be sent over it.
 
    overriding procedure Destroy (O : in out Client_Object);
+   --  See `D_Bus.Support.Destroy`
+   --
+   --  Additionally, a `Client_Object` may not be destroyed if any signals
+   --  are registered on it. These must first be unregistered.
 private
    --  Signal_Name => Signal_Match_Rule
    package Signal_Maps is new Ada.Containers.Indefinite_Hashed_Maps

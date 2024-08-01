@@ -103,6 +103,15 @@
       <annotation name="com.example.Annotation" value="Test"/>
    </interface>
 
+   <interface name="com.example.Mixed">
+      <!-- Test signals -->
+      <signal name="Signal1">
+         <arg type="s"/>
+      </signal>
+
+      <signal name="Signal2"/>
+   </interface>
+
    <node name="Interior">
       <interface name="com.example.Interior">
          <method name="Method"/>

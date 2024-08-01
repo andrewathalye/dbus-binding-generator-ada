@@ -22,7 +22,7 @@ function Sanitise_Name (Name : String) return String is
       R_Then, R_Type, R_Until, R_Use, R_When, R_While, R_With, R_Xor);
 
    --  Words that we use as binding dependencies
-   type Dependent is (Interfaces, D_Bus, R_Ada, O);
+   type Dependent is (Interfaces, D_Bus, R_Ada, GNAT, O);
    --  O is the name used for the Child_Interface controlling parameter
 
    package Reserved_Maps is new Ada.Containers.Indefinite_Ordered_Maps
@@ -60,7 +60,8 @@ function Sanitise_Name (Name : String) return String is
       "with" => R_With, "xor" => R_Xor];
 
    Dependent_Map : constant Dependent_Maps.Map :=
-     ["interfaces" => Interfaces, "d_bus" => D_Bus, "ada" => R_Ada, "o" => O];
+     ["interfaces" => Interfaces, "d_bus" => D_Bus, "ada" => R_Ada,
+      "gnat" => GNAT, "o" => O];
 
    --  Disallowed characters
    Underline_Set : constant Ada.Strings.Maps.Character_Set :=

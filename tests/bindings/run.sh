@@ -129,4 +129,10 @@ echo "Ada client tests"
 # The server should have shut down
 kill $PID 2>/dev/null && die
 
+###################
+# Ada Mixed Tests #
+###################
+echo "Ada mixed tests"
+./bin/bindings_mixed || die
+
 echo PASS

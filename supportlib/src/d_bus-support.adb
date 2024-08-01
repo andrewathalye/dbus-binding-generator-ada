@@ -6,24 +6,12 @@ with dbus_types_h;
 with dbus_errors_h;
 with dbus_bus_h;
 with dbus_shared_h;
+with dbus_threads_h;
 
 package body D_Bus.Support is
    ---------------
    -- Internals --
    ---------------
-   --  Lock Implementation
-   protected body Lock is
-      entry Acquire when not Locked is
-      begin
-         Locked := True;
-      end Acquire;
-
-      entry Release when Locked is
-      begin
-         Locked := False;
-      end Release;
-   end Lock;
-
    --  Private Methods
    procedure Assert_Valid (O : Root_Object'Class) is
    begin
@@ -69,6 +57,15 @@ package body D_Bus.Support is
    -- Elaboration --
    -----------------
 begin
+   --  Set up locked (multithreaded) DBus
+   declare
+      use type dbus_types_h.dbus_bool_t;
+   begin
+      if dbus_threads_h.dbus_threads_init_default /= 1 then
+         raise D_Bus_Error with "Unable to initialise locked D_Bus runtime.";
+      end if;
+   end;
+
    declare
       use type dbus_types_h.dbus_bool_t;
 
@@ -83,6 +80,6 @@ begin
          raise D_Bus_Error with "Unable to acquire a private session bus.";
       end if;
 
-      Connection := Convert (CO);
+      Internal_Connection := Convert (CO);
    end;
 end D_Bus.Support;

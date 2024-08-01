@@ -24,13 +24,7 @@ package body D_Bus.Support.Server is
    ------------------
    procedure Request_Name (Name : String) is
    begin
-      --  Note: Changing the global connection
-      D_Bus_Lock.Acquire;
-      Critical_Section :
-      begin
-         D_Bus.Connection.Request_Name (Connection, Name);
-      end Critical_Section;
-      D_Bus_Lock.Release;
+      D_Bus.Connection.Request_Name (Internal_Connection, Name);
    end Request_Name;
 
    ---------------------
@@ -64,7 +58,9 @@ package body D_Bus.Support.Server is
    ------------------
    -- Release_Name --
    ------------------
-   procedure Release_Name (Name : String) is
+   procedure Release_Name
+     (Connection : D_Bus.Connection.Connection_Type; Name : String)
+   is
       use type Interfaces.C.int;
 
       C_Res  : Interfaces.C.int;
@@ -73,16 +69,10 @@ package body D_Bus.Support.Server is
         Interfaces.C.Strings.New_String (Name);
       CO     : constant Connection_Overlay    := Convert (Connection);
    begin
-      --  Note: Changing the global connection
-      D_Bus_Lock.Acquire;
-      Critical_Section :
-      begin
-         C_Res :=
-           dbus_bus_h.dbus_bus_release_name
-             (connection => CO.Thin_Connection, name => C_Name,
-              error      => D_Err'Access);
-      end Critical_Section;
-      D_Bus_Lock.Release;
+      C_Res :=
+        dbus_bus_h.dbus_bus_release_name
+          (connection => CO.Thin_Connection, name => C_Name,
+           error      => D_Err'Access);
 
       Interfaces.C.Strings.Free (C_Name);
 
@@ -92,18 +82,17 @@ package body D_Bus.Support.Server is
       end if;
    end Release_Name;
 
+   procedure Release_Name (Name : String) is
+   begin
+      Release_Name (Internal_Connection, Name);
+   end Release_Name;
+
    -----------------------
    -- Setup_With_G_Main --
    -----------------------
    procedure Setup_With_G_Main is
    begin
-      --  Note: Changing the global connection
-      D_Bus_Lock.Acquire;
-      Critical_Section :
-      begin
-         D_Bus.Connection.G_Main.Setup_With_G_Main (Connection);
-      end Critical_Section;
-      D_Bus_Lock.Release;
+      D_Bus.Connection.G_Main.Setup_With_G_Main (Internal_Connection);
    end Setup_With_G_Main;
 
    -------------------
@@ -247,13 +236,7 @@ package body D_Bus.Support.Server is
       end if;
 
       --  Send a reply
-      --  Note: Sending a message is modifying global state
-      D_Bus_Lock.Acquire;
-      Critical_Section :
-      begin
-         D_Bus.Connection.Send (D_Bus.Support.Connection, Reply);
-      end Critical_Section;
-      D_Bus_Lock.Release;
+      D_Bus.Connection.Send (OJA.Object.Connection, Reply);
 
       return dbus_shared_h.DBUS_HANDLER_RESULT_HANDLED;
    end Message_Function;
@@ -288,26 +271,24 @@ package body D_Bus.Support.Server is
    begin
       Assert_Valid (O.all);
 
+      if O.Registered then
+         raise D_Bus_Error
+           with "Object " & To_String (O.Node) & " is already registered";
+      end if;
+
       --  Set up the `Object_Data_Type`
       OJA.Object   := Server_Object_Access (O);
       OJA.Handlers := Handlers;
 
-      CO := Convert (Connection);
+      CO := Convert (O.Connection);
 
       C_Obj_Path := Interfaces.C.Strings.New_String (To_String (O.Node));
 
-      --  Note: Registering an object on the global connection
-      D_Bus_Lock.Acquire;
-      Critical_Section :
-      begin
-         D_Res :=
-           dbus_connection_h.dbus_connection_register_object_path
-             (connection => CO.Thin_Connection, path => C_Obj_Path,
-              vtable     => VTable'Access,
-              user_data  =>
-                Object_Data_Conversions.To_Address (OJA.all'Access));
-      end Critical_Section;
-      D_Bus_Lock.Release;
+      D_Res :=
+        dbus_connection_h.dbus_connection_register_object_path
+          (connection => CO.Thin_Connection, path => C_Obj_Path,
+           vtable     => VTable'Access,
+           user_data  => Object_Data_Conversions.To_Address (OJA.all'Access));
 
       Interfaces.C.Strings.Free (C_Obj_Path);
 
@@ -315,12 +296,14 @@ package body D_Bus.Support.Server is
          raise D_Bus_Error
            with "Failed to register object " & To_String (O.Node);
       end if;
+
+      O.Registered := True;
    end Register;
 
    ----------------
    -- Unregister --
    ----------------
-   procedure Unregister (O : Server_Object'Class) is
+   procedure Unregister (O : in out Server_Object'Class) is
       use D_Bus.Types;
       use type dbus_types_h.dbus_bool_t;
 
@@ -331,19 +314,18 @@ package body D_Bus.Support.Server is
    begin
       Assert_Valid (O);
 
-      CO := Convert (Connection);
+      if not O.Registered then
+         raise D_Bus_Error
+           with "Object " & To_String (O.Node) & " was not registered";
+      end if;
+
+      CO := Convert (O.Connection);
 
       C_Obj_Path := Interfaces.C.Strings.New_String (To_String (O.Node));
 
-      --  Note: Unregistering a global object
-      D_Bus_Lock.Acquire;
-      Critical_Section :
-      begin
-         D_Res :=
-           dbus_connection_h.dbus_connection_unregister_object_path
-             (connection => CO.Thin_Connection, path => C_Obj_Path);
-      end Critical_Section;
-      D_Bus_Lock.Release;
+      D_Res :=
+        dbus_connection_h.dbus_connection_unregister_object_path
+          (connection => CO.Thin_Connection, path => C_Obj_Path);
 
       Interfaces.C.Strings.Free (C_Obj_Path);
 
@@ -351,6 +333,8 @@ package body D_Bus.Support.Server is
          raise D_Bus_Error
            with "Failed to unregister object " & To_String (O.Node);
       end if;
+
+      O.Registered := False;
    end Unregister;
    ----------------------------------------------------------------------------
    -------------------
@@ -381,15 +365,9 @@ package body D_Bus.Support.Server is
    begin
       Assert_Valid (O);
 
-      --  Note: using the global connection
-      D_Bus_Lock.Acquire;
-      Critical_Section :
-      begin
-         D_Bus.Connection.Send_Signal
-           (Connection => Connection, Object_Name => O.Node, Iface => Iface,
-            Name       => Name, Args => Args);
-      end Critical_Section;
-      D_Bus_Lock.Release;
+      D_Bus.Connection.Send_Signal
+        (Connection => O.Connection, Object_Name => O.Node, Iface => Iface,
+         Name       => Name, Args => Args);
    end Send_Signal;
 
    ------------------
@@ -551,20 +529,36 @@ package body D_Bus.Support.Server is
    ------------
    -- Create --
    ------------
-   procedure Create (O : out Server_Object; Node : D_Bus.Types.Obj_Path) is
+   procedure Create
+     (O          : out Server_Object; Node : D_Bus.Types.Obj_Path;
+      Connection :     D_Bus.Connection.Connection_Type)
+   is
    begin
       Assert_Invalid (O);
 
-      O.Node  := Node;
-      O.Valid := True;
+      O.Node       := Node;
+      O.Connection := Connection;
+      O.Valid      := True;
+   end Create;
+
+   procedure Create (O : out Server_Object; Node : D_Bus.Types.Obj_Path) is
+   begin
+      Create (O, Node, Internal_Connection);
    end Create;
 
    -------------
    -- Destroy --
    -------------
    overriding procedure Destroy (O : in out Server_Object) is
+      use D_Bus.Types;
    begin
       Assert_Valid (O);
+
+      if O.Registered then
+         raise D_Bus_Error
+           with "Unregister object " & To_String (O.Node) &
+           " before calling Destroy.";
+      end if;
 
       O.Valid := False;
       O.Properties.Clear;

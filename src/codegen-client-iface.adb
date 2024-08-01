@@ -187,13 +187,14 @@ package body Codegen.Client.Iface is
 
             Start_Procedure (Signal_Await_Signature (S));
             begin
-               Declare_Entity ("Msg", "D_Bus.Messages.Message_Type");
                Declare_Entity ("Args", "D_Bus.Arguments.Argument_List_Type");
             end;
             Begin_Code;
             begin
-               Call ("O.Await_Signal (Msg, Iface, """ & (+S.Name) & """)");
-               Assign ("Args", "D_Bus.Messages.Get_Arguments (Msg)");
+               Assign
+                 ("Args",
+                  "D_Bus.Messages.Get_Arguments (O.Await_Signal (Iface, """ &
+                  (+S.Name) & """))");
 
                --  Check the signature
                Call

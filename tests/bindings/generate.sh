@@ -1,5 +1,5 @@
 #!/bin/sh
-CMD="$1"
+CMD="${1:-../../dbus_binding_generator_ada}"
 
 die() {
    rm data
