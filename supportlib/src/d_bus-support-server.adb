@@ -235,8 +235,10 @@ package body D_Bus.Support.Server is
          end Try_Handler;
       end if;
 
-      --  Send a reply
-      D_Bus.Connection.Send (OJA.Object.Connection, Reply);
+      --  Send a reply if one is expected
+      if not Is_No_Reply_Expected (Request) then
+         D_Bus.Connection.Send (OJA.Object.Connection, Reply);
+      end if;
 
       return dbus_shared_h.DBUS_HANDLER_RESULT_HANDLED;
    end Message_Function;

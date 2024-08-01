@@ -9,7 +9,7 @@ Use `gnatstub` and `gnatpp` to clean up the generated code as desired.
 
 TODO
 ----
-Add annotation support as seen below
+Add support for Deprecated and EmitsChangedSignal
 
 Let the program work even without `data/introspect.xsd`
 
