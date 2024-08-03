@@ -13,9 +13,9 @@ ln -s ../data .
 CLIENT_SPECS="../specs/org.mpris.MediaPlayer2.xml ../specs/org.freedesktop.DBus.xml"
 SERVER_SPECS="../specs/org.mpris.MediaPlayer2.xml"
 
-../dbus_binding_generator_ada -client $CLIENT_SPECS > generated/client.ada || die
-../dbus_binding_generator_ada -server $SERVER_SPECS > generated/server.ada || die
-../dbus_binding_generator_ada -types $CLIENT_SPECS $SERVER_SPECS > generated/types.ada || die
+../bin/dbus_binding_generator_ada -client $CLIENT_SPECS > generated/client.ada || die
+../bin/dbus_binding_generator_ada -server $SERVER_SPECS > generated/server.ada || die
+../bin/dbus_binding_generator_ada -types $CLIENT_SPECS $SERVER_SPECS > generated/types.ada || die
 
 gnatchop generated/client.ada generated/ || die
 gnatchop generated/server.ada generated/ || die

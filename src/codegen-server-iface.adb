@@ -113,6 +113,11 @@ package body Codegen.Server.Iface is
    -- Print_Spec --
    ----------------
    procedure Print_Spec (Pkg : Ada_Package_Type);
+   --  Note: The serverside binding does not contain references to
+   --  annotation org.freedesktop.DBus.Deprecated, because the server
+   --  must be free to implement any specified member irrespective
+   --  of obsolescence.
+
    procedure Print_Spec (Pkg : Ada_Package_Type) is
       use type Parsing.DBus_Direction;
    begin
@@ -131,8 +136,6 @@ package body Codegen.Server.Iface is
 
       With_Entity ("D_Bus.Arguments.Containers");
       --  `Variant_Type`
-      Use_Type ("D_Bus.Arguments.Containers.Variant_Type");
-      --  ^^
       With_Entity ("D_Bus.Types");
       --  `Obj_Path`, `Signature`
       With_Entity ("D_Bus.Support.Server");
@@ -309,12 +312,17 @@ package body Codegen.Server.Iface is
             Start_Procedure (Property_Write_Signature (P));
             begin
                Use_Entity ("Ada.Strings.Unbounded");
-               Use_All_Type ("D_Bus.Support.Server.Access_Type");
 
                Declare_Entity
                  ("DBus_Value", Get_Library_DBus_Type (+P.Type_Code));
             end;
             Begin_Code;
+            declare
+               --  These names are way too long :/
+               P_A         : Parsing.Annotations_List renames P.Annotations;
+               P_A_OFDPECS :
+                 Parsing.OFDP_ECST renames
+                 P_A.org_freedesktop_DBus_Property_EmitsChangedSignal;
             begin
                Call ("Bind_To_DBus (Value, DBus_Value)");
 
@@ -326,9 +334,17 @@ package body Codegen.Server.Iface is
                   """, D_Bus.Arguments.Containers.Create (DBus_Value)," &
                   " PAccess => " &
                      (case P.PAccess is
-                        when Parsing.Read => "Read",
-                        when Parsing.Write => "Write",
-                        when Parsing.Readwrite => "Readwrite") & ")");
+                        when Parsing.Read => "D_Bus.Support.Server.Read",
+                        when Parsing.Write => "D_Bus.Support.Server.Write",
+                        when Parsing.Readwrite =>
+                           "D_Bus.Support.Server.Readwrite") & "," &
+                  " Does_Emit => " &
+                     (case P_A_OFDPECS is
+                        when Parsing.True => "D_Bus.Support.Server.True",
+                        when Parsing.Invalidates =>
+                           "D_Bus.Support.Server.Invalidates",
+                        when Parsing.Const | Parsing.False =>
+                           "D_Bus.Support.Server.False") & ")");
                --!pp on
             end;
             End_Procedure (Property_Write_Name (P));

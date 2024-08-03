@@ -1,3 +1,5 @@
+pragma Ada_2012;
+
 with Codegen.Output.Subprograms; use Codegen.Output.Subprograms;
 use Codegen.Output;
 with Codegen.Types;
@@ -42,46 +44,83 @@ package body Codegen.Client.Iface is
       New_Line;
 
       --  Package Spec
-      --!pp off
       Start_Package ((+Pkg.Name) & ".Client");
+      begin
+         --  Implement org.freedesktop.DBus.Deprecated
+         if Pkg.Annotations.org_freedesktop_DBus_Deprecated then
+            Use_Pragma ("Obsolescent");
+         end if;
+
          Declare_Type
            ("Child_Interface",
             "limited interface and D_Bus.Support.Client.Client_Interface");
          New_Line;
 
+         --  Methods
          if not Pkg.Methods.Is_Empty then
             Large_Comment ("Methods");
             for M of Pkg.Methods loop
                Declare_Procedure (Method_Signature (M));
+
+               --  Implement org.freedesktop.DBus.Deprecated
+               if M.Annotations.org_freedesktop_DBus_Deprecated then
+                  Use_Pragma ("Obsolescent");
+               end if;
+
                New_Line;
             end loop;
          end if;
 
+         --  Signals
          if not Pkg.Signals.Is_Empty then
             Large_Comment ("Signals");
             for S of Pkg.Signals loop
+               --  Implement org.freedesktop_DBus.Deprecated
                Declare_Procedure (Signal_Register_Signature (S));
+               if S.Annotations.org_freedesktop_DBus_Deprecated then
+                  Use_Pragma ("Obsolescent");
+               end if;
+
                Declare_Procedure (Signal_Unregister_Signature (S));
+               if S.Annotations.org_freedesktop_DBus_Deprecated then
+                  Use_Pragma ("Obsolescent");
+               end if;
+
                Declare_Procedure (Signal_Await_Signature (S));
+               if S.Annotations.org_freedesktop_DBus_Deprecated then
+                  Use_Pragma ("Obsolescent");
+               end if;
+
                New_Line;
             end loop;
          end if;
 
+         --  Properties
          if not Pkg.Properties.Is_Empty then
             Large_Comment ("Properties");
             for P of Pkg.Properties loop
                if P.PAccess in Parsing.Read | Parsing.Readwrite then
                   Declare_Function (Property_Read_Signature (P));
+
+                  --  Implement org.freedesktop.DBus.Deprecated
+                  if P.Annotations.org_freedesktop_DBus_Deprecated then
+                     Use_Pragma ("Obsolescent");
+                  end if;
                end if;
 
                if P.PAccess in Parsing.Write | Parsing.Readwrite then
                   Declare_Procedure (Property_Write_Signature (P));
+
+                  --  Implement org.freedesktop.DBus.Deprecated
+                  if P.Annotations.org_freedesktop_DBus_Deprecated then
+                     Use_Pragma ("Obsolescent");
+                  end if;
                end if;
                New_Line;
             end loop;
          end if;
+      end;
       End_Package ((+Pkg.Name) & ".Client");
-      --!pp on
    end Print_Spec;
 
    ----------------
@@ -91,6 +130,14 @@ package body Codegen.Client.Iface is
    procedure Print_Body (Pkg : Ada_Package_Type) is
       use type Parsing.DBus_Direction;
    begin
+      --  Don’t generate a body if the package is completely
+      --  empty.
+      if Pkg.Methods.Is_Empty and Pkg.Signals.Is_Empty and
+        Pkg.Properties.Is_Empty
+      then
+         return;
+      end if;
+
       --  Preamble
       Use_Pragma ("Ada_2012");
       Use_Pragma ("Style_Checks (Off)");
@@ -187,15 +234,12 @@ package body Codegen.Client.Iface is
 
             Start_Procedure (Signal_Await_Signature (S));
             begin
-               Declare_Entity ("Args", "D_Bus.Arguments.Argument_List_Type");
+               Declare_Entity
+                 ("Args", "constant D_Bus.Arguments.Argument_List_Type",
+                  "O.Await_Signal (Iface, """ & (+S.Name) & """)");
             end;
             Begin_Code;
             begin
-               Assign
-                 ("Args",
-                  "D_Bus.Messages.Get_Arguments (O.Await_Signal (Iface, """ &
-                  (+S.Name) & """))");
-
                --  Check the signature
                Call
                  ("D_Bus.Support.Client.Check_Signature (Args, """ &

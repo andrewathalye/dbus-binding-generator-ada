@@ -60,7 +60,8 @@ package body Codegen is
          end;
       end loop;
 
-      Pkg.Properties := I.Properties;
+      Pkg.Properties  := I.Properties;
+      Pkg.Annotations := I.Annotations;
 
       return Pkg;
    end Create_Package;

@@ -6,6 +6,7 @@ with Ada.Text_IO;           use Ada.Text_IO;
 
 --  D_Bus/Ada
 with D_Bus.Types;
+with D_Bus.Connection;
 use type D_Bus.Types.Obj_Path;
 
 --  D_Bus Interfaces
@@ -41,13 +42,14 @@ procedure MPRIS_Client is
    Player : MPRIS_Object;
 
    --  Variables
+   Connection : D_Bus.Connection.Connection_Type := D_Bus.Connection.Connect;
    Prefix    : constant Unbounded_String := +"org.mpris.MediaPlayer2";
    Name_List : Array_s;
 begin
    --  Constructors
-   Bus.Create (+"/org/freedesktop/DBus");
+   Bus.Create (Connection, +"/org/freedesktop/DBus");
    Bus.Set_Destination ("org.freedesktop.DBus");
-   Player.Create (+"/org/mpris/MediaPlayer2");
+   Player.Create (Connection, +"/org/mpris/MediaPlayer2");
 
    --  Find Players
    Bus.ListNames (Name_List);
@@ -79,4 +81,5 @@ begin
    --  Destructors
    Player.Destroy;
    Bus.Destroy;
+   D_Bus.Connection.Free (Connection);
 end MPRIS_Client;

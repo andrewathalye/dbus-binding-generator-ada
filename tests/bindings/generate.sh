@@ -1,16 +1,13 @@
 #!/bin/sh
-CMD="${1:-../../dbus_binding_generator_ada}"
+CMD="${1:-../../bin/dbus_binding_generator_ada}"
 
 die() {
-   rm data
    exit -1
 }
 
 cd "$(dirname $0)"
 rm -r generated
 mkdir generated
-
-ln -s ../../data data
 
 CLIENT_SPECS="../testdata/test.interface.xml"
 SERVER_SPECS="../testdata/test.interface.xml"
@@ -24,4 +21,4 @@ gnatchop generated/server.ada generated/ || die
 gnatchop generated/types.ada generated/ || die
 
 gnatpp generated/*.ads || die
-rm generated/*.ada data || die
+rm generated/*.ada || die

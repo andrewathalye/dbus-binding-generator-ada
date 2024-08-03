@@ -1,6 +1,5 @@
 pragma Ada_2005;
 
-with D_Bus.Messages;
 with D_Bus.Arguments.Containers;
 
 private with Ada.Strings.Unbounded;
@@ -54,7 +53,7 @@ package D_Bus.Support.Client is
 
    function Await_Signal
      (O : Client_Interface; Iface : String; Name : String)
-      return D_Bus.Messages.Message_Type is abstract;
+      return D_Bus.Arguments.Argument_List_Type is abstract;
    --  Return the message for a registered signal with
    --  interface `Iface` and name `Name`.
 
@@ -89,7 +88,7 @@ package D_Bus.Support.Client is
 
    overriding function Await_Signal
      (O : Client_Object; Iface : String; Name : String)
-      return D_Bus.Messages.Message_Type;
+      return D_Bus.Arguments.Argument_List_Type;
 
    overriding function Call_Blocking
      (O    : Client_Object; Iface : String; Method : String;
@@ -108,13 +107,13 @@ package D_Bus.Support.Client is
    -- Constructors and Destructors --
    ----------------------------------
    overriding procedure Create
-     (O          : out Client_Object; Node : D_Bus.Types.Obj_Path;
-      Connection :     D_Bus.Connection.Connection_Type);
+     (O    : out Client_Object; Connection : D_Bus.Connection.Connection_Type;
+      Node :     D_Bus.Types.Obj_Path);
+   --  See `D_Bus.Support.Create`
 
-   overriding procedure Create
-     (O : out Client_Object; Node : D_Bus.Types.Obj_Path);
-   --  Create a new object `O` with path `Node`. If `Connection` is not
-   --  specified, it will use a connection to the internal D_Bus session bus.
+   function Destination (O : Client_Object) return String;
+   --  Get the destination associated with `O`. This will return
+   --  an empty String if no destination has been set.
 
    procedure Set_Destination (O : in out Client_Object; Destination : String);
    --  Set the D_Bus destination associated with `O`. By default, the

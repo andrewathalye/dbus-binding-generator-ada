@@ -1,6 +1,4 @@
-CMD="${1:-../../../dbus_binding_generator_ada}"
-DATA="../../../data"
-TESTDATA="../../testdata"
+CMD="${1:-../../bin/dbus_binding_generator_ada}"
 
 RESULT=""
 
@@ -15,10 +13,6 @@ cmd() {
 }
 
 cd "$(dirname $0)"
-mkdir -p testdir/data || die
-cd testdir || die
-
-cp -r $DATA/introspect.xsd data/ || die
 
 ################
 # BINDER TESTS #
@@ -32,7 +26,7 @@ cmd -types && die
 echo Incorrect Arguments
 cmd --invalid-argument && die
 
-echo Option Delimeter
+echo Option Delimiter
 RESULT=`$CMD -- -client 2>&1 | grep client` || die
 
 echo Help
@@ -43,17 +37,13 @@ echo Fake File
 cmd -types ./doesnotexist && die
 
 echo Test Specification
-cmd -client $TESTDATA/test.interface.xml || die
-cmd -server $TESTDATA/test.interface.xml || die
-cmd -types $TESTDATA/test.interface.xml || die
+cmd -client ../testdata/test.interface.xml || die
+cmd -server ../testdata/test.interface.xml || die
+cmd -types ../testdata/test.interface.xml || die
 
 echo Erroneous Specifications
-cmd -types $TESTDATA/test.error_complexdictkey.xml && die
-cmd -types $TESTDATA/test.error_schemavalidation.xml && die
-cmd -types $TESTDATA/test.error_propertyplacement.xml && die
-
-echo Erroneous Schema
-cp $TESTDATA/invalid.xsd data/introspect.xsd
-cmd -types $TESTDATA/test.interface.xml && die
+cmd -types ../testdata/test.error_complexdictkey.xml && die
+cmd -types ../testdata/test.error_schemavalidation.xml && die
+cmd -types ../testdata/test.error_propertyplacement.xml && die
 
 echo PASS

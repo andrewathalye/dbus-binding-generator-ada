@@ -56,11 +56,6 @@ package body Codegen.Output is
       Put_Line (File, "use type " & T & ";");
    end Use_Type;
 
-   procedure Use_All_Type (T : String) is
-   begin
-      Put_Line (File, "use all type " & T & ";");
-   end Use_All_Type;
-
    procedure Declare_Entity
      (Entity : String; EType : String; Value : String := "")
    is

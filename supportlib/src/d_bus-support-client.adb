@@ -6,6 +6,8 @@ with System;
 with System.Address_To_Access_Conversions;
 
 with D_Bus.Arguments.Basic;
+with D_Bus.Connection;
+with D_Bus.Messages;
 
 with dbus_connection_h;
 with dbus_message_h;
@@ -50,7 +52,7 @@ package body D_Bus.Support.Client is
    package MRL is new Ada.Containers.Doubly_Linked_Lists (Message_Reference);
 
    protected Msg_Box is
-      procedure Length (Length : out Ada.Containers.Count_Type);
+      function Length return Ada.Containers.Count_Type;
       procedure Enqueue (R : Message_Reference);
       procedure Consume (R : out Message_Reference);
       entry Lock;
@@ -61,10 +63,7 @@ package body D_Bus.Support.Client is
    end Msg_Box;
 
    protected body Msg_Box is
-      procedure Length (Length : out Ada.Containers.Count_Type) is
-      begin
-         Length := Data.Length;
-      end Length;
+      function Length return Ada.Containers.Count_Type is (Data.Length);
 
       procedure Enqueue (R : Message_Reference) is
       begin
@@ -156,29 +155,14 @@ package body D_Bus.Support.Client is
    procedure Unregister_Signal
      (O : in out Client_Object; Iface : String; Name : String)
    is
-      procedure Remove_Match (Rule : String);
-      procedure Remove_Match (Rule : String) is
-         use D_Bus.Arguments.Basic;
-         use type D_Bus.Types.Obj_Path;
-
-         Args, Discard : D_Bus.Arguments.Argument_List_Type;
-      begin
-         D_Bus.Arguments.Append (Args, +Rule);
-         Discard :=
-           D_Bus.Connection.Call_Blocking
-             (Connection  => O.Connection,
-              Destination => "org.freedesktop.DBus",
-              Path        => +"/org/freedesktop/DBus",
-              Iface       => "org.freedesktop.DBus", Method => "RemoveMatch",
-              Args        => Args);
-      end Remove_Match;
    begin
       Assert_Valid (O);
       if not O.Signals.Contains (Iface & ":" & Name) then
          raise D_Bus_Error with "Asked to unregister nonexisting signal.";
       end if;
 
-      Remove_Match (O.Signals (Iface & ":" & Name));
+      D_Bus.Connection.Remove_Match
+        (O.Connection, O.Signals (Iface & ":" & Name));
 
       O.Signals.Delete (Iface & ":" & Name);
    end Unregister_Signal;
@@ -188,7 +172,7 @@ package body D_Bus.Support.Client is
    ------------------
    function Await_Signal
      (O : Client_Object; Iface : String; Name : String)
-      return D_Bus.Messages.Message_Type
+      return D_Bus.Arguments.Argument_List_Type
    is
       use type D_Bus.Messages.Message_Type;
 
@@ -220,14 +204,11 @@ package body D_Bus.Support.Client is
       declare
          use type D_Bus.Connection.Connection_Type;
 
-         Ref    : Message_Reference;
-         Length : Ada.Containers.Count_Type;
+         Ref : Message_Reference;
       begin
-         Msg_Box.Length (Length);
-
          --  Stop any other tasks from trying to consume messages
          Msg_Box.Lock;
-         for I in 1 .. Length loop
+         for I in 1 .. Msg_Box.Length loop
             Msg_Box.Consume (Ref);
 
             if Ref.Connection = O.Connection
@@ -235,9 +216,11 @@ package body D_Bus.Support.Client is
             then
                Msg_Box.Unlock;
 
-               --  Unref the message to stop memory leaks
-               D_Bus.Messages.Unref (Ref.Msg);
-               return Ref.Msg;
+               --  Prevent memory leaks
+               return Arguments : D_Bus.Arguments.Argument_List_Type do
+                  Arguments := D_Bus.Messages.Get_Arguments (Ref.Msg);
+                  D_Bus.Messages.Unref (Ref.Msg);
+               end return;
             else
                Msg_Box.Enqueue (Ref);
             end if;
@@ -285,14 +268,15 @@ package body D_Bus.Support.Client is
             end if;
          end loop Dispatch;
 
-         --  Unref the message to stop memory leaks
-         D_Bus.Messages.Unref (Callback_Msg);
-
          --  Remove filter
          dbus_connection_h.dbus_connection_remove_filter
            (CO.Thin_Connection, Call_Back'Access, Callback_Msg'Address);
 
-         return Callback_Msg;
+         --  Prevent memory leaks
+         return Arguments : D_Bus.Arguments.Argument_List_Type do
+            Arguments := D_Bus.Messages.Get_Arguments (Callback_Msg);
+            D_Bus.Messages.Unref (Callback_Msg);
+         end return;
       end Wait_For_Signal;
    end Await_Signal;
 
@@ -365,8 +349,8 @@ package body D_Bus.Support.Client is
    -- Constructor and Destructor --
    --------------------------------
    procedure Create
-     (O          : out Client_Object; Node : D_Bus.Types.Obj_Path;
-      Connection :     D_Bus.Connection.Connection_Type)
+     (O    : out Client_Object; Connection : D_Bus.Connection.Connection_Type;
+      Node :     D_Bus.Types.Obj_Path)
    is
    begin
       Assert_Invalid (O);
@@ -376,10 +360,12 @@ package body D_Bus.Support.Client is
       O.Valid      := True;
    end Create;
 
-   procedure Create (O : out Client_Object; Node : D_Bus.Types.Obj_Path) is
+   function Destination (O : Client_Object) return String is
    begin
-      Create (O, Node, Internal_Connection);
-   end Create;
+      Assert_Valid (O);
+
+      return Ada.Strings.Unbounded.To_String (O.Destination);
+   end Destination;
 
    procedure Set_Destination (O : in out Client_Object; Destination : String)
    is

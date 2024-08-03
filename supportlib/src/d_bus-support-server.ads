@@ -11,31 +11,6 @@ package D_Bus.Support.Server is
    ----------------------
    -- Base Subprograms --
    ----------------------
-   procedure Request_Name (Name : String);
-   --  Set the global D_Bus name for the default internal connection.
-   --  A connection can have multiple names, but each name can only
-   --  be used by one application.
-   --
-   --  Use `D_Bus.Connection.Request_Name` to request a name on an
-   --  arbitrary connection.
-
-   procedure Release_Name
-     (Connection : D_Bus.Connection.Connection_Type; Name : String);
-   procedure Release_Name (Name : String);
-   --  Release the given name which was acquired earlier with `Request_Name`.
-   --  If `Connection` is not specified, the internal connection will be used.
-
-   procedure Setup_With_G_Main;
-   --  Set up the default D_Bus connection to work with Glib’s Gmain event
-   --  loop. This is the recommended (and supported) way to interact with
-   --  libdbus.
-   --
-   --  Use `D_Bus.Connection.G_Main.Setup_With_G_Main` if you need to set up
-   --  an arbitrary connection.
-
-   procedure Run_Iteration;
-   --  Run a blocking iteration of the Glib main loop.
-
    procedure Check_Signature
      (Arguments : D_Bus.Arguments.Argument_List_Type; Signature : String);
    --  Raise `Invalid_Signature` if the signature of `Arguments` is
@@ -66,18 +41,28 @@ package D_Bus.Support.Server is
    ----------------
    -- Properties --
    ----------------
-   type Access_Type is (Unchanged, Read, Write, Readwrite);
+   type PAccess_Type is (Unchanged, Read, Write, Readwrite);
+   type Emit_Behaviour_Type is (Unchanged, True, Invalidates, False);
 
    procedure Set_Property
-     (O       : in out Server_Interface; Iface : String; Name : String;
-      Value   :        D_Bus.Arguments.Containers.Variant_Type;
-      PAccess :        Access_Type := Unchanged) is abstract;
+     (O         : in out Server_Interface; Iface : String; Name : String;
+      Value     :        D_Bus.Arguments.Containers.Variant_Type;
+      PAccess   :        PAccess_Type        := Unchanged;
+      Does_Emit :        Emit_Behaviour_Type := Unchanged) is abstract;
    --  Set a property with semantics identical to the
    --  standard `org.freedesktop.DBus.Properties.Set`
    --
    --  If PAccess is set to anything other than `Unchanged`,
    --  access checks will be disabled and the property will
    --  be created if it did not already exist.
+   --
+   --  If Emit_Behaviour is set to anything other than `Unchanged`:
+   --  True => PropertiesChanged will be emitted on change.
+   --  Invalidates => PropertiesChanged with no value will be emitted
+   --  False => PropertiesChanged will not be emitted
+   --
+   --  If Emit_Behaviour is `Unchanged` and the property does not yet
+   --  exist, an exception will be raised.
 
    procedure Get_Property
      (O        :     Server_Interface; Iface : String; Name : String;
@@ -152,9 +137,10 @@ package D_Bus.Support.Server is
       Args : D_Bus.Arguments.Argument_List_Type);
 
    overriding procedure Set_Property
-     (O       : in out Server_Object; Iface : String; Name : String;
-      Value   :        D_Bus.Arguments.Containers.Variant_Type;
-      PAccess :        Access_Type := Unchanged);
+     (O         : in out Server_Object; Iface : String; Name : String;
+      Value     :        D_Bus.Arguments.Containers.Variant_Type;
+      PAccess   :        PAccess_Type        := Unchanged;
+      Does_Emit :        Emit_Behaviour_Type := Unchanged);
 
    overriding procedure Get_Property
      (O        :     Server_Object; Iface : String; Name : String;
@@ -169,14 +155,9 @@ package D_Bus.Support.Server is
    -- Constructors / Destructors --
    --------------------------------
    overriding procedure Create
-     (O          : out Server_Object; Node : D_Bus.Types.Obj_Path;
-      Connection :     D_Bus.Connection.Connection_Type);
-
-   overriding procedure Create
-     (O : out Server_Object; Node : D_Bus.Types.Obj_Path);
-   --  Create a new `Server_Object` with path `Node`. If `Connection` is not
-   --  given, the default internal conenction to the D_Bus session bus will
-   --  be used.
+     (O    : out Server_Object; Connection : D_Bus.Connection.Connection_Type;
+      Node :     D_Bus.Types.Obj_Path);
+   --  See `D_Bus.Support.Create`
 
    overriding procedure Destroy (O : in out Server_Object);
    --  See `D_Bus.Support.Destroy` for the full details.
@@ -186,11 +167,14 @@ private
    -------------------
    -- Server_Object --
    -------------------
-   subtype Valid_Access_Type is Access_Type range Read .. Readwrite;
+   subtype Valid_PAccess_Type is PAccess_Type range Read .. Readwrite;
+   subtype EBT is Emit_Behaviour_Type;
+   subtype Valid_Emit_Behaviour_Type is EBT range True .. False;
 
    type Property_Type is record
-      PAccess : Valid_Access_Type;
-      Value   : D_Bus.Arguments.Containers.Variant_Type;
+      PAccess        : Valid_PAccess_Type;
+      Emit_Behaviour : Valid_Emit_Behaviour_Type;
+      Value          : D_Bus.Arguments.Containers.Variant_Type;
    end record;
 
    --  "Name" => "Value"

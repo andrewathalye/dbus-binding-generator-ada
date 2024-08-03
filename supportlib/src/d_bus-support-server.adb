@@ -6,27 +6,16 @@ with Interfaces.C.Strings;
 with System.Address_To_Access_Conversions;
 
 with D_Bus.Arguments.Basic;
-with D_Bus.Connection.G_Main;
 
 with dbus_types_h;
 with dbus_connection_h;
 with dbus_message_h;
 with dbus_shared_h;
-with dbus_bus_h;
-with dbus_errors_h;
 
 package body D_Bus.Support.Server is
    ----------
    -- BASE --
    ----------
-   ------------------
-   -- Request_Name --
-   ------------------
-   procedure Request_Name (Name : String) is
-   begin
-      D_Bus.Connection.Request_Name (Internal_Connection, Name);
-   end Request_Name;
-
    ---------------------
    -- Check_Signature --
    ---------------------
@@ -54,59 +43,6 @@ package body D_Bus.Support.Server is
    begin
       Check_Signature (Argument.Get_Signature, Signature);
    end Check_Signature;
-
-   ------------------
-   -- Release_Name --
-   ------------------
-   procedure Release_Name
-     (Connection : D_Bus.Connection.Connection_Type; Name : String)
-   is
-      use type Interfaces.C.int;
-
-      C_Res  : Interfaces.C.int;
-      D_Err  : aliased dbus_errors_h.DBusError;
-      C_Name : Interfaces.C.Strings.chars_ptr :=
-        Interfaces.C.Strings.New_String (Name);
-      CO     : constant Connection_Overlay    := Convert (Connection);
-   begin
-      C_Res :=
-        dbus_bus_h.dbus_bus_release_name
-          (connection => CO.Thin_Connection, name => C_Name,
-           error      => D_Err'Access);
-
-      Interfaces.C.Strings.Free (C_Name);
-
-      if C_Res /= dbus_shared_h.DBUS_RELEASE_NAME_REPLY_RELEASED then
-         raise D_Bus_Error
-           with "Unable to release name " & Name & " (" & C_Res'Image & ")";
-      end if;
-   end Release_Name;
-
-   procedure Release_Name (Name : String) is
-   begin
-      Release_Name (Internal_Connection, Name);
-   end Release_Name;
-
-   -----------------------
-   -- Setup_With_G_Main --
-   -----------------------
-   procedure Setup_With_G_Main is
-   begin
-      D_Bus.Connection.G_Main.Setup_With_G_Main (Internal_Connection);
-   end Setup_With_G_Main;
-
-   -------------------
-   -- Run_Iteration --
-   -------------------
-   procedure Run_Iteration is
-      function g_main_context_iteration
-        (Context : System.Address; Blocking : Integer) return Integer;
-      pragma Import (C, g_main_context_iteration);
-
-      Discard : Integer;
-   begin
-      Discard := g_main_context_iteration (System.Null_Address, 1);
-   end Run_Iteration;
 
    ----------------------------------------------------------------------------
    ----------------------------
@@ -174,6 +110,15 @@ package body D_Bus.Support.Server is
       Request : constant Message_Type := Create (Message);
       Reply   : Message_Type;
    begin
+      --  Ensure that the message is a Method_Call
+      --
+      --  This prevents leaking other types of messages to
+      --  the method call handler table, where they could theoretically
+      --  have the right arguments to pass the signature check.
+      if Get_Type (Request) /= Method_Call then
+         return dbus_shared_h.DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+      end if;
+
       --  Try to execute the handler
       if not OJA.Handlers.Contains (Get_Interface (Request)) then
          Reply :=
@@ -239,6 +184,10 @@ package body D_Bus.Support.Server is
       if not Is_No_Reply_Expected (Request) then
          D_Bus.Connection.Send (OJA.Object.Connection, Reply);
       end if;
+
+      --  Free Reply
+      --  Request is provided by D_Bus so no need to free
+      D_Bus.Messages.Unref (Reply);
 
       return dbus_shared_h.DBUS_HANDLER_RESULT_HANDLED;
    end Message_Function;
@@ -376,16 +325,12 @@ package body D_Bus.Support.Server is
    -- Set_Property --
    ------------------
    procedure Set_Property
-     (O       : in out Server_Object; Iface : String; Name : String;
-      Value   :        D_Bus.Arguments.Containers.Variant_Type;
-      PAccess :        Access_Type := Unchanged)
+     (O         : in out Server_Object; Iface : String; Name : String;
+      Value     :        D_Bus.Arguments.Containers.Variant_Type;
+      PAccess   :        PAccess_Type        := Unchanged;
+      Does_Emit :        Emit_Behaviour_Type := Unchanged)
    is
-      use type D_Bus.Arguments.Basic.String_Type;
       use D_Bus.Types;
-
-      Property_Array    : D_Bus.Arguments.Containers.Array_Type;
-      Invalidated_Array : D_Bus.Arguments.Containers.Array_Type;
-      Args              : D_Bus.Arguments.Argument_List_Type;
    begin
       Assert_Valid (O);
 
@@ -405,8 +350,9 @@ package body D_Bus.Support.Server is
             when Unchanged =>
                Raise_Unknown_Property (O, Iface, Name);
             when Read | Write | Readwrite =>
-               O.Properties (Iface).Insert (Name, (PAccess, Value));
-               goto Send_Signal;
+               O.Properties (Iface).Insert
+                 (Name, Property_Type'(PAccess, Does_Emit, Value));
+               goto Try_Emit_Signal;
          end case;
       end if;
 
@@ -441,28 +387,56 @@ package body D_Bus.Support.Server is
       O.Properties (Iface) (Name).Value := Value;
 
       --  Send out the PropertiesChanged signal
-      <<Send_Signal>>
+      <<Try_Emit_Signal>>
 
-      --  a{sv} [{name, value}] | changed_properties
+      --  No need to emit a signal in this case
+      if O.Properties (Iface) (Name).Emit_Behaviour = False then
+         return;
+      end if;
+
+      Emit_Signal :
       declare
-         Property_Dict : D_Bus.Arguments.Containers.Dict_Entry_Type;
+         use type D_Bus.Arguments.Basic.String_Type;
+
+         Property_Array    : D_Bus.Arguments.Containers.Array_Type;
+         Invalidated_Array : D_Bus.Arguments.Containers.Array_Type;
+         Args              : D_Bus.Arguments.Argument_List_Type;
       begin
-         Property_Dict := D_Bus.Arguments.Containers.Create (+Name, Value);
-         Property_Array.Append (Property_Dict);
-      end;
+         --  Handle the case where either array could be empty
+         --  a{sv} [{name, value}] | changed_properties
+         Property_Array.Set_Signature ("{sv}");
 
-      --  as | invalidated_properties
-      Invalidated_Array.Set_Signature ("s");
-      --  Note: we don’t currently use this
+         --  as | invalidated_properties
+         Invalidated_Array.Set_Signature ("s");
 
-      --  s a{sv} as | interface_name changed_properties invalidated_properties
-      Args.Append (+Iface);
-      Args.Append (Property_Array);
-      Args.Append (Invalidated_Array);
+         --  Add a single element to the correct array
+         case O.Properties (Iface) (Name).Emit_Behaviour is
+            when True =>
+               declare
+                  use D_Bus.Arguments.Containers;
+                  Property_Dict : constant Dict_Entry_Type :=
+                    Create (+Name, Value);
+               begin
+                  Property_Array.Append (Property_Dict);
+               end;
+            when Invalidates =>
+               Invalidated_Array.Append (+Name);
 
-      O.Send_Signal
-        (Iface => "org.freedesktop.DBus.Properties",
-         Name  => "PropertiesChanged", Args => Args);
+               --  Impossible to get here
+            when False =>
+               null;
+         end case;
+
+         --  sa{sv}as
+         --  interface_name changed_properties invalidated_properties
+         Args.Append (+Iface);
+         Args.Append (Property_Array);
+         Args.Append (Invalidated_Array);
+
+         O.Send_Signal
+           (Iface => "org.freedesktop.DBus.Properties",
+            Name  => "PropertiesChanged", Args => Args);
+      end Emit_Signal;
    end Set_Property;
 
    ------------------
@@ -509,6 +483,7 @@ package body D_Bus.Support.Server is
       Assert_Valid (O);
 
       --  Handle the case where no properties are defined on Iface
+      --  (this is not erroneous)
       Properties.Set_Signature ("{sv}");
       if not O.Properties.Contains (Iface) then
          return;
@@ -522,9 +497,9 @@ package body D_Bus.Support.Server is
               D_Bus.Arguments.Containers.Create
                 (+Name_Value_Maps.Key (Cursor),
                  O.Properties (Iface) (Cursor).Value);
-         end if;
 
-         Properties.Append (Dict_Entry);
+            Properties.Append (Dict_Entry);
+         end if;
       end loop;
    end Get_All_Properties;
 
@@ -532,20 +507,15 @@ package body D_Bus.Support.Server is
    -- Create --
    ------------
    procedure Create
-     (O          : out Server_Object; Node : D_Bus.Types.Obj_Path;
-      Connection :     D_Bus.Connection.Connection_Type)
+     (O    : out Server_Object; Connection : D_Bus.Connection.Connection_Type;
+      Node :     D_Bus.Types.Obj_Path)
    is
    begin
       Assert_Invalid (O);
 
-      O.Node       := Node;
       O.Connection := Connection;
+      O.Node       := Node;
       O.Valid      := True;
-   end Create;
-
-   procedure Create (O : out Server_Object; Node : D_Bus.Types.Obj_Path) is
-   begin
-      Create (O, Node, Internal_Connection);
    end Create;
 
    -------------

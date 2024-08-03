@@ -2,50 +2,33 @@ with "xmlada_input";
 with "xmlada_dom";
 with "xmlada_schema";
 
-project dbus_binding_generator_ada is
-   type Build_Mode_Type is ("dev", "prod", "coverage");
-   Build_Mode : Build_Mode_Type := external ("BUILD_MODE", "dev");
+with "gpr/shared";
 
-   for Exec_Dir use ".";
+project dbus_binding_generator_ada is
+   PWD := external ("PWD", ".");
+   Introspect_Schema := external ("INTROSPECT_SCHEMA", PWD & "/share/introspect.xsd");
+
+   for Exec_Dir use "bin";
    for Source_Dirs use ("src");
-   for Object_Dir use "obj/" & Build_Mode;
+   for Object_Dir use "obj/" & Shared.Build_Mode;
    for Main use ("dbus_binding_generator_ada.adb");
 
-   package Compiler is
-      Common_Switches := ("-gnatwa", "-gnatwe", "-gnatyy");
-
-      Dev_Switches := Common_Switches & ("-g", "-Og", "-gnata", "-gnatVa");
-      Prod_Switches := Common_Switches & ("-O3", "-gnatp", "-ffast-math");
-      Coverage_Switches := Dev_Switches & ("-fprofile-arcs", "-ftest-coverage");
-
-      case Build_Mode is
-         when "dev" =>
-            for Default_Switches ("Ada") use Dev_Switches;
-         when "prod" =>
-            for Default_Switches ("Ada") use Prod_Switches;
+   package Builder is
+      case Shared.Build_Mode is
          when "coverage" =>
-            for Default_Switches ("Ada") use Coverage_Switches;
+            for Executable ("dbus_binding_generator_ada.adb") use "dbus_binding_generator_ada_cov";
+         when others => null;
       end case;
+   end Builder;
+
+   package Compiler is
+      for Default_Switches ("Ada") use Shared.Compiler'Default_Switches ("Ada");
+
+      --  The main file requires preprocessing to specify the introspect schema location
+      for Switches ("dbus_binding_generator_ada.adb") use Compiler'Default_Switches ("Ada") &
+        ("-gnateG", "-gnateDINTROSPECT_SCHEMA=""" & Introspect_Schema & """");
    end Compiler;
 
-   package Binder is
-      Common_Switches := ("-shared");
-
-      case Build_Mode is
-         when "dev" | "coverage" =>
-            for Default_Switches ("Ada") use Common_Switches & ("-Es");
-         when "prod" =>
-            for Default_Switches ("Ada") use Common_Switches;
-      end case;
-   end Binder;
-
-   package Linker is
-      case Build_Mode is
-         when "dev" =>  null;
-         when "prod" =>
-            for Default_Switches ("Ada") use ("-Wl,-s", "-Wl,--gc-sections");
-         when "coverage" =>
-            for Default_Switches ("Ada") use ("-lgcov");
-      end case;
-   end Linker;
+   package Binder renames Shared.Binder;
+   package Linker renames Shared.Linker; 
 end dbus_binding_generator_ada;

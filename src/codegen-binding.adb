@@ -184,6 +184,13 @@ package body Codegen.Binding is
                      "D_Bus.Arguments.Containers.Array_Type (" &
                       DBus_Name & ")");
                Begin_Code;
+                  --  Assign empty array to start with
+                  --  This prevents leftover data in the array
+                  Assign
+                    (Ada_Name,
+                     "Pkg_" & (Get_Ada_Type (+TD.Type_Code)) &
+                      ".Empty_Vector");
+
                   Start_Index_For_Loop ("I", "1", "DBus_Array.Get_Count");
                      Declare_Code;
                         --  DBus Element
@@ -252,6 +259,13 @@ package body Codegen.Binding is
                      "D_Bus.Arguments.Containers.Array_Type (" &
                      DBus_Name & ")");
                Begin_Code;
+                  --  Assign empty dict to start with
+                  --  This prevents leftover data in the dict
+                  Assign
+                    (Ada_Name,
+                     "Pkg_" & (Get_Ada_Type (+TD.Type_Code)) &
+                      ".Empty_Map");
+
                   Start_Index_For_Loop ("I", "1", "DBus_Dict.Get_Count");
                      Declare_Code;
                         Declare_Entity

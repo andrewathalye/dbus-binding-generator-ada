@@ -74,6 +74,13 @@ procedure DBus_Binding_Generator_Ada is
    type Mode_Type is (Client, Server, Types);
 
    ---------------
+   -- Constants --
+   ---------------
+   pragma Style_Checks (Off);
+   Introspect_Schema : constant String := $INTROSPECT_SCHEMA;
+   pragma Style_Checks (On);
+
+   ---------------
    -- Variables --
    ---------------
    File_List : File_Lists.Vector;
@@ -165,7 +172,7 @@ begin
       Input  : Input_Sources.File.File_Input;
       Reader : Schema.Schema_Readers.Schema_Reader;
    begin
-      Input_Sources.File.Open ("data/introspect.xsd", Input);
+      Input_Sources.File.Open (Introspect_Schema, Input);
       Reader.Parse (Input);
       Input.Close;
       Grammar := Reader.Get_Grammar;

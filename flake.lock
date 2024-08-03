@@ -8,11 +8,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1722303261,
-        "narHash": "sha256-T8XQAuXc4RXITDOTaY00QrCoFgm8KBdfS34T0IQJSrE=",
+        "lastModified": 1722646404,
+        "narHash": "sha256-JBIRvrErLz5pYzHjyEAtetaDLcUnkGIXZKUri3gEM0Q=",
         "owner": "andrewathalye",
         "repo": "dbus-ada",
-        "rev": "f0bef1799d4c08b7eb475be2b2d7b7414c145951",
+        "rev": "c829123531a9e647c5884eeeb429070e884c512e",
         "type": "github"
       },
       "original": {
@@ -27,16 +27,16 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1722304347,
-        "narHash": "sha256-3tVqSBsmuGBR40lToDgSatvpCV6uuz9Vkz7eb8sijkg=",
+        "lastModified": 1722646440,
+        "narHash": "sha256-2atcHuA1mQBHdEWSuXpLbYHDNUVdUwY0NO2zyfobYV4=",
         "owner": "andrewathalye",
         "repo": "nix-ada",
-        "rev": "f9b4446e57610b27ab2126037f1bc50f3c1c4832",
+        "rev": "cbcb188185afde30202d835a450cc1c786cb6702",
         "type": "github"
       },
       "original": {
         "owner": "andrewathalye",
-        "ref": "v1.4.4",
+        "ref": "v1.5",
         "repo": "nix-ada",
         "type": "github"
       }

@@ -8,8 +8,10 @@ with GNAT.OS_Lib;
 
 --  D_Bus Library
 with D_Bus.Arguments.Basic;
+with D_Bus.Connection.G_Main;
 with D_Bus.Arguments.Containers;
 with D_Bus.Types;
+with D_Bus.G_Main;
 use type D_Bus.Types.Obj_Path;
 with D_Bus.Support.Server; use D_Bus.Support.Server;
 
@@ -40,7 +42,9 @@ procedure MPRIS_Server is
    end record;
 
    overriding procedure Create
-     (O : out MPRIS_Object; Node : D_Bus.Types.Obj_Path);
+     (O : out MPRIS_Object;
+      Connection : D_Bus.Connection.Connection_Type;
+      Node : D_Bus.Types.Obj_Path);
    overriding procedure Quit (O : in out MPRIS_Object);
    overriding procedure Play (O : in out MPRIS_Object);
    overriding procedure Pause (O : in out MPRIS_Object);
@@ -50,11 +54,13 @@ procedure MPRIS_Server is
    -- Methods on MPRIS_Object --
    -----------------------------
    overriding procedure Create
-     (O : out MPRIS_Object; Node : D_Bus.Types.Obj_Path)
+     (O : out MPRIS_Object;
+      Connection : D_Bus.Connection.Connection_Type;
+      Node : D_Bus.Types.Obj_Path)
    is
    begin
       --  Create base object
-      Server_Object (O).Create (Node);
+      Server_Object (O).Create (Connection, Node);
 
       --  Set properties for org.mpris.MediaPlayer2
       O.Set_CanQuit (True);
@@ -116,15 +122,16 @@ procedure MPRIS_Server is
    end PlayPause;
 
    --  Variables
+   Connection : D_Bus.Connection.Connection_Type := D_Bus.Connection.Connect;
    Server : aliased MPRIS_Object;
 begin
    --  Initial setup
    Put_Line ("Set up server");
-   D_Bus.Support.Server.Setup_With_G_Main;
+   D_Bus.Connection.G_Main.Setup_With_G_Main (Connection);
 
    --  Object
    Put_Line ("Create and register object");
-   Server.Create (+"/org/mpris/MediaPlayer2");
+   Server.Create (Connection, +"/org/mpris/MediaPlayer2");
    D_Bus.Generated_Objects.Register (Server'Unchecked_Access);
 
    --  Update properties
@@ -142,14 +149,13 @@ begin
 
    --  Register name and start loop
    Put_Line ("Start loop");
-   D_Bus.Support.Server.Request_Name ("org.mpris.MediaPlayer2.test");
-   while not Server.Should_Quit loop
-      D_Bus.Support.Server.Run_Iteration;
-   end loop;
+   D_Bus.Connection.Request_Name (Connection, "org.mpris.MediaPlayer2.test");
+   D_Bus.G_Main.Start;
+   D_Bus.Connection.Release_Name (Connection, "org.mpris.MediaPlayer2.test");
 
    --  Cleanup
    Put_Line ("Cleanup");
-   D_Bus.Support.Server.Release_Name ("org.mpris.MediaPlayer2.test");
    Server.Unregister;
    Server.Destroy;
+   D_Bus.Connection.Free (Connection);
 end MPRIS_Server;

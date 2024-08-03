@@ -17,7 +17,7 @@ with com_example_Mixed.Server; use com_example_Mixed.Server;
 --  Generated
 with D_Bus.Generated_Objects; use D_Bus.Generated_Objects;
 
-procedure Bindings_Mixed is
+procedure Mixed is
    --  Types
    type Server is
    new D_Bus.Support.Server.Server_Object and
@@ -37,12 +37,15 @@ procedure Bindings_Mixed is
    --  Variables
    System_Bus : constant D_Bus.Connection.Connection_Type :=
      D_Bus.Connection.Connect (D_Bus.Bus_System);
-begin
-   Server_Obj.Create (+"/");
-   Client_Obj.Create (+"/");
 
-   Server_Obj_System.Create (+"/", System_Bus);
-   Client_Obj_System.Create (+"/", System_Bus);
+   Session_Bus : constant D_Bus.Connection.Connection_Type :=
+      D_Bus.Connection.Connect (D_Bus.Bus_Session);
+begin
+   Server_Obj.Create (Session_Bus, +"/");
+   Client_Obj.Create (Session_Bus, +"/");
+
+   Server_Obj_System.Create (System_Bus, +"/");
+   Client_Obj_System.Create (System_Bus, +"/");
 
    --  Register
    Register (Server_Obj'Unchecked_Access);
@@ -158,4 +161,4 @@ begin
 
    Server_Obj.Destroy;
    Server_Obj_System.Destroy;
-end Bindings_Mixed;
+end Mixed;

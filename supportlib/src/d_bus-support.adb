@@ -3,9 +3,6 @@ pragma Ada_2005;
 with Ada.Strings.Unbounded;
 
 with dbus_types_h;
-with dbus_errors_h;
-with dbus_bus_h;
-with dbus_shared_h;
 with dbus_threads_h;
 
 package body D_Bus.Support is
@@ -26,6 +23,17 @@ package body D_Bus.Support is
          raise D_Bus_Error with "Attempted to re-initialise a valid object.";
       end if;
    end Assert_Invalid;
+
+   ----------------
+   -- Connection --
+   ----------------
+   function Connection
+     (O : Root_Object'Class) return D_Bus.Connection.Connection_Type
+   is
+   begin
+      Assert_Valid (O);
+      return O.Connection;
+   end Connection;
 
    ----------
    -- Node --
@@ -64,22 +72,5 @@ begin
       if dbus_threads_h.dbus_threads_init_default /= 1 then
          raise D_Bus_Error with "Unable to initialise locked D_Bus runtime.";
       end if;
-   end;
-
-   declare
-      use type dbus_types_h.dbus_bool_t;
-
-      CO  : Connection_Overlay;
-      Err : aliased dbus_errors_h.DBusError;
-   begin
-      CO.Thin_Connection :=
-        dbus_bus_h.dbus_bus_get_private
-          (dbus_shared_h.DBUS_BUS_SESSION, Err'Access);
-
-      if dbus_errors_h.dbus_error_is_set (Err'Access) = 1 then
-         raise D_Bus_Error with "Unable to acquire a private session bus.";
-      end if;
-
-      Internal_Connection := Convert (CO);
    end;
 end D_Bus.Support;

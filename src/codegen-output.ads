@@ -39,7 +39,6 @@ package Codegen.Output is
    procedure Renames_Entity (L, T, R : String);
    procedure Use_Entity (Entity : String);
    procedure Use_Type (T : String);
-   procedure Use_All_Type (T : String);
    procedure Declare_Entity
      (Entity : String; EType : String; Value : String := "");
    procedure With_Entity (Entity : String);
