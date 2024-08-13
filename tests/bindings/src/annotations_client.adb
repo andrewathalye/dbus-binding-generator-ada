@@ -12,6 +12,7 @@ use type D_Bus.Types.Obj_Path;
 with D_Bus.Generated_Types; use D_Bus.Generated_Types;
 
 --  Interfaces
+with com_example_Control.Client;
 with com_example_Annotations.Client;
 with com_example_Annotations_Deprecated.Client;
 with org_freedesktop_DBus_Properties.Client;
@@ -22,23 +23,27 @@ procedure Annotations_Client (Connection : D_Bus.Connection.Connection_Type)
 is
    type Annotations_Object is new D_Bus.Support.Client.Client_Object
       and org_freedesktop_DBus_Properties.Client.Child_Interface
+      and com_example_Control.Client.Child_Interface
       and com_example_Annotations.Client.Child_Interface with null record;
 
-   O : Annotations_Object;
+   O : aliased Annotations_Object;
 begin
-   O.Create (Connection, +"/");
-   O.Set_Destination ("test.Service");
+   O.Create (Connection, +"/Annotations");
+   O.Set_Destination ("test.Annotations");
+   O.Register;
 
    --  Wait for server to be ready
    --  If Ping goes through then the server is already up.
-   O.Register_Signal;
    begin
       O.Ping;
    exception
       when D_Bus.D_Bus_Error =>
          O.Await_Signal;
    end;
-   O.Unregister_Signal;
+   O.Purge_Signal;
+
+   Put_Line ("Call method marked NoReply");
+   O.Method;
 
    Put_Line ("Read deprecated property");
 
@@ -50,10 +55,7 @@ begin
    end;
 
    --  Set Properties and Inspect PropertiesChanged
-   Put_Line
-     ("Register org.freedesktop.DBus.Properties.PropertiesChanged @ /");
-   O.Register_PropertiesChanged;
-
+   O.Purge_PropertiesChanged;
    O.Set_False (+"False");
    O.Set_Const (+"Const");
    O.Set_True (+"True");
@@ -77,9 +79,6 @@ begin
          raise Program_Error with "Erroneous signal data";
       end if;
    end;
-
-   Put_Line ("Unregister PropertiesChanged @ /");
-   O.Unregister_PropertiesChanged;
 
    Put_Line ("Quit");
    O.Quit;

@@ -25,15 +25,11 @@ package Codegen.Output.Subprograms is
    -- Signals --
    -------------
    --  Clientside
-   function Signal_Register_Name (S : Parsing.Signal_Type) return String;
-   function Signal_Register_Signature (S : Parsing.Signal_Type) return String;
-
-   function Signal_Unregister_Name (S : Parsing.Signal_Type) return String;
-   function Signal_Unregister_Signature
-     (S : Parsing.Signal_Type) return String;
-
    function Signal_Await_Name (S : Parsing.Signal_Type) return String;
    function Signal_Await_Signature (S : Parsing.Signal_Type) return String;
+
+   function Signal_Purge_Name (S : Parsing.Signal_Type) return String;
+   function Signal_Purge_Signature (S : Parsing.Signal_Type) return String;
 
    --  Serverside
    function Signal_Name (S : Parsing.Signal_Type) return String;

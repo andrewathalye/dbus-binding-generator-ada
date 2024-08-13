@@ -1,4 +1,4 @@
 /generated
 /bin
 /obj
-/debug/dbus.debug.so
+#/debug/dbus.debug.so

@@ -1,41 +1,14 @@
 <!-- Test root node named / -->
 <node name="/">
-   <!-- Test builtin server interface for OFDP -->
-   <interface name="org.freedesktop.DBus.Properties">
-      <method name="Get">
-         <arg name="interface_name" type="s"/>
-         <arg name="property_name" type="s"/>
-         <arg name="value" type="v" direction="out"/>
-      </method>
-
-      <method name="Set">
-         <arg name="interface_name" type="s"/>
-         <arg name="property_name" type="s"/>
-         <arg name="value" type="v"/>
-      </method>
-
-      <method name="GetAll">
-         <arg name="interface_name" type="s"/>
-         <arg name="properties" type="a{sv}" direction="out"/>
-      </method>
-      
-      <signal name="PropertiesChanged">
-         <arg name="interface_name" type="s"/>
-         <arg name="changed_properties" type="a{sv}"/>
-         <arg name="invalidated_properties" type="as"/>
-      </signal>
-   </interface>
-
    <interface name="com.example.Duplicate"/>
 
-   <interface name="com.example.ClientServer">
+   <interface name="com.example.Control">
       <method name="Ping"/>
       <signal name="Ready"/>
+      <method name="Quit"/>
+   </interface>
 
-      <method name="Quit">
-         <annotation name="org.freedesktop.Method.NoReply" value="true"/>
-      </method>
-
+   <interface name="com.example.ClientServer">
       <method name="TestBasicTypes">
          <arg type="y"/>
          <arg type="b"/>
@@ -98,60 +71,128 @@
       <method name="in">
          <arg name="Interfaces" type="s"/>
       </method>
-
-      <!-- Test properties -->
-      <property name="TestPropertyReadOnly" type="s" access="read"/>
-      <property name="TestPropertyWriteOnly" type="s" access="write"/>
-      <property name="TestProperty" type="s" access="readwrite"/>
    </interface>
 
-   <interface name="com.example.Annotations">
-      <method name="Ping"/>
-      <method name="Quit"/>
+   <!-- Test properties -->
+   <node name="Properties">
+      <interface name="org.freedesktop.DBus.Properties">
+         <method name="Get">
+            <arg name="interface_name" type="s"/>
+            <arg name="property_name" type="s"/>
+            <arg name="value" type="v" direction="out"/>
+         </method>
 
-      <method name="Method">
+         <method name="Set">
+            <arg name="interface_name" type="s"/>
+            <arg name="property_name" type="s"/>
+            <arg name="value" type="v"/>
+         </method>
+
+         <method name="GetAll">
+            <arg name="interface_name" type="s"/>
+            <arg name="properties" type="a{sv}" direction="out"/>
+         </method>
+      
+         <signal name="PropertiesChanged">
+            <arg name="interface_name" type="s"/>
+            <arg name="changed_properties" type="a{sv}"/>
+            <arg name="invalidated_properties" type="as"/>
+         </signal>
+      </interface>
+
+      <interface name="com.example.Control">
+         <method name="Ping"/>
+         <signal name="Ready"/>
+         <method name="Quit"/>
+      </interface>
+
+      <interface name="com.example.Properties">
+         <property name="TestPropertyReadOnly" type="s" access="read"/>
+         <property name="TestPropertyWriteOnly" type="s" access="write"/>
+         <property name="TestProperty" type="s" access="readwrite"/>
+      </interface>
+   </node>
+   
+   <!-- Test annotations -->
+   <node name="Annotations">
+      <interface name="org.freedesktop.DBus.Properties">
+         <method name="Get">
+            <arg name="interface_name" type="s"/>
+            <arg name="property_name" type="s"/>
+            <arg name="value" type="v" direction="out"/>
+         </method>
+
+         <method name="Set">
+            <arg name="interface_name" type="s"/>
+            <arg name="property_name" type="s"/>
+            <arg name="value" type="v"/>
+         </method>
+
+         <method name="GetAll">
+            <arg name="interface_name" type="s"/>
+            <arg name="properties" type="a{sv}" direction="out"/>
+         </method>
+      
+         <signal name="PropertiesChanged">
+            <arg name="interface_name" type="s"/>
+            <arg name="changed_properties" type="a{sv}"/>
+            <arg name="invalidated_properties" type="as"/>
+         </signal>
+      </interface>
+
+      <interface name="com.example.Control">
+         <method name="Ping"/>
+         <signal name="Ready"/>
+         <method name="Quit"/>
+      </interface>
+
+      <interface name="com.example.Annotations">
+         <method name="Method">
+            <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
+            <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+         </method>
+
+         <signal name="Signal">
+            <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
+         </signal>
+
+         <property name="Deprecated" access="readwrite" type="s">
+            <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
+         </property>
+
+         <property name="True" access="readwrite" type="s">
+            <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="true"/>
+         </property>
+
+         <property name="Invalidates" access="readwrite" type="s">
+            <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="invalidates"/>
+         </property>
+
+         <!-- Technically invalid, but annotations are optional so not against spec -->
+         <property name="Const" access="readwrite" type="s">
+            <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+         </property>
+
+         <property name="False" access="readwrite" type="s">
+            <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+         </property>
+      </interface>
+
+      <interface name="com.example.Annotations.Deprecated">
          <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
-         <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
-      </method>
-
-      <signal name="Signal">
-         <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
-      </signal>
-
-      <property name="Deprecated" access="readwrite" type="s">
-         <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
-      </property>
-
-      <property name="True" access="readwrite" type="s">
-         <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="true"/>
-      </property>
-
-      <property name="Invalidates" access="readwrite" type="s">
-         <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="invalidates"/>
-      </property>
-
-      <!-- Technically invalid, but annotations are optional so not against spec -->
-      <property name="Const" access="readwrite" type="s">
-         <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
-      </property>
-
-      <property name="False" access="readwrite" type="s">
-         <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
-      </property>
-   </interface>
-
-   <interface name="com.example.Annotations.Deprecated">
-      <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
-   </interface>
+      </interface>
+   </node>
 
    <!-- Mixed-mode (signal handling) tests -->
-   <interface name="com.example.Mixed">
-      <signal name="Signal1">
-         <arg type="s"/>
-      </signal>
+   <node name="Mixed">
+      <interface name="com.example.Mixed">
+         <signal name="Signal1">
+            <arg type="s"/>
+         </signal>
 
-      <signal name="Signal2"/>
-   </interface>
+         <signal name="Signal2"/>
+      </interface>
+   </node>
    
    <!-- Structural tests -->
    <node name="Interior">
@@ -160,12 +201,11 @@
       </interface>
 
       <interface name="com.example.Duplicate"/>
-   </node>
 
-   <node name="InteriorWithEmpty">
-      <interface name="com.example.InteriorWithEmpty"/>
-   </node>
+      <node name="InteriorWithEmpty">
+         <interface name="com.example.InteriorWithEmpty"/>
+      </node>
 
-   <!-- Test empty interior nodes and nodes named "/" -->
-   <node name="Empty"/>
+      <node name="Empty"/>
+   </node>
 </node>

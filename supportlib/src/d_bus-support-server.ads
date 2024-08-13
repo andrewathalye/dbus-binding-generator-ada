@@ -16,10 +16,6 @@ package D_Bus.Support.Server is
    --  Raise `Invalid_Signature` if the signature of `Arguments` is
    --  not equal to `Signature`
 
-   procedure Check_Signature
-     (Argument : D_Bus.Arguments.Argument_Type'Class; Signature : String);
-   --  The same, but for a single argument.
-
    ------------------------------------
    -- Object-Oriented Server Support --
    ------------------------------------
@@ -122,12 +118,6 @@ package D_Bus.Support.Server is
    --  messages. `Handlers` is a map `<Interface_Name, Handler_Access>`.
    --
    --  Once registered, `O` will be managed by the internal server connection.
-   --  You must first call `O.Unregister` before calling `O.Destroy`.
-
-   procedure Unregister (O : in out Server_Object'Class);
-   --  Unregister `O` with the D_Bus Connection. `O` will remain
-   --  a valid `Server_Object` after this, and may have its name changed
-   --  or be registered again with different handlers.
 
    --------------------
    -- Implementation --
@@ -162,7 +152,7 @@ package D_Bus.Support.Server is
    overriding procedure Destroy (O : in out Server_Object);
    --  See `D_Bus.Support.Destroy` for the full details.
    --
-   --  `O` must _not_ be registered prior to calling `Destroy`
+   --  This also clears internal structures used by Server Objects
 private
    -------------------
    -- Server_Object --
@@ -191,6 +181,6 @@ private
    type Server_Object is
    limited new Root_Object and Server_Interface with record
       Properties : Property_Maps.Map;
-      Registered : Boolean := False;
+      Handlers   : Handler_Map;
    end record;
 end D_Bus.Support.Server;

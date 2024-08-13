@@ -1,15 +1,10 @@
 pragma Ada_2012;
 
-with Ada.Unchecked_Deallocation;
 with Ada.Exceptions;
-with Interfaces.C.Strings;
-with System.Address_To_Access_Conversions;
+with D_Bus.Support.Message_Handlers;
 
 with D_Bus.Arguments.Basic;
 
-with dbus_types_h;
-with dbus_connection_h;
-with dbus_message_h;
 with dbus_shared_h;
 
 package body D_Bus.Support.Server is
@@ -37,13 +32,6 @@ package body D_Bus.Support.Server is
       Check_Signature (Arg_Sig, Signature);
    end Check_Signature;
 
-   procedure Check_Signature
-     (Argument : D_Bus.Arguments.Argument_Type'Class; Signature : String)
-   is
-   begin
-      Check_Signature (Argument.Get_Signature, Signature);
-   end Check_Signature;
-
    ----------------------------------------------------------------------------
    ----------------------------
    -- SERVER_OBJECT'CLASS --
@@ -51,65 +39,30 @@ package body D_Bus.Support.Server is
    -------------------------
    -- Object Registration --
    -------------------------
-   ---------------
-   -- Internals --
-   ---------------
-   type Server_Object_Access is access all Server_Object'Class;
-   --  Note: Must _not_ be deallocated as it doesn’t belong to us.
-   --  We are 'borrowing' the object.
-
-   type Object_Data_Type is limited record
-      Object   : Server_Object_Access;
-      Handlers : Handler_Map;
-   end record;
-
-   type Object_Data_Access is access all Object_Data_Type;
-
-   package Object_Data_Conversions is new System.Address_To_Access_Conversions
-     (Object_Data_Type);
-
-   procedure Free is new Ada.Unchecked_Deallocation
-     (Object_Data_Type, Object_Data_Access);
-
-   procedure Unregister_Function
-     (Connection : access dbus_connection_h.DBusConnection;
-      User_Data  : System.Address);
-   pragma Convention (C, Unregister_Function);
-
-   procedure Unregister_Function
-     (Connection : access dbus_connection_h.DBusConnection;
-      User_Data  : System.Address)
-   is
-      pragma Unreferenced (Connection);
-
-      OJA : Object_Data_Access :=
-        Object_Data_Access (Object_Data_Conversions.To_Pointer (User_Data));
-   begin
-      Free (OJA);
-   end Unregister_Function;
-
    function Message_Function
-     (Connection : access dbus_connection_h.DBusConnection;
-      Message : access dbus_message_h.DBusMessage; User_Data : System.Address)
+     (O : access Root_Object'Class;
+      Connection : D_Bus.Connection.Connection_Type;
+      Message : D_Bus.Messages.Message_Type)
       return dbus_shared_h.DBusHandlerResult;
-   pragma Convention (C, Message_Function);
 
    function Message_Function
-     (Connection : access dbus_connection_h.DBusConnection;
-      Message : access dbus_message_h.DBusMessage; User_Data : System.Address)
+     (O : access Root_Object'Class;
+      Connection : D_Bus.Connection.Connection_Type;
+      Message : D_Bus.Messages.Message_Type)
       return dbus_shared_h.DBusHandlerResult
    is
       pragma Unreferenced (Connection);
       use D_Bus.Messages;
 
-      --  Variables
-      OJA : constant Object_Data_Access :=
-        Object_Data_Access (Object_Data_Conversions.To_Pointer (User_Data));
-
       --  Messages
-      Request : constant Message_Type := Create (Message);
+      Request : Message_Type renames Message;
       Reply   : Message_Type;
+
+      --  Variables
+      SO : Server_Object'Class renames Server_Object'Class (O.all);
    begin
+      Assert_Valid (SO);
+
       --  Ensure that the message is a Method_Call
       --
       --  This prevents leaking other types of messages to
@@ -120,7 +73,7 @@ package body D_Bus.Support.Server is
       end if;
 
       --  Try to execute the handler
-      if not OJA.Handlers.Contains (Get_Interface (Request)) then
+      if not SO.Handlers.Contains (Get_Interface (Request)) then
          Reply :=
            New_Error
              (Reply_To      => Request,
@@ -132,10 +85,9 @@ package body D_Bus.Support.Server is
          Try_Handler :
          declare
             Handler : constant Handler_Access :=
-              OJA.Handlers.Element (Get_Interface (Request));
+              SO.Handlers.Element (Get_Interface (Request));
          begin
-            Assert_Valid (OJA.Object.all);
-            Handler (OJA.Object.all, Request, Reply);
+            Handler (SO, Request, Reply);
          exception
             when Unknown_Method =>
                Reply :=
@@ -182,7 +134,7 @@ package body D_Bus.Support.Server is
 
       --  Send a reply if one is expected
       if not Is_No_Reply_Expected (Request) then
-         D_Bus.Connection.Send (OJA.Object.Connection, Reply);
+         D_Bus.Connection.Send (SO.Connection, Reply);
       end if;
 
       --  Free Reply
@@ -192,101 +144,17 @@ package body D_Bus.Support.Server is
       return dbus_shared_h.DBUS_HANDLER_RESULT_HANDLED;
    end Message_Function;
 
-   procedure Pad (Arg1 : System.Address) is null;
-   pragma Convention (C, Pad);
-
    --------------
    -- Register --
    --------------
    procedure Register (O : access Server_Object'Class; Handlers : Handler_Map)
    is
-      use D_Bus.Types;
-      use type dbus_types_h.dbus_bool_t;
-
-      CO         : Connection_Overlay;
-      C_Obj_Path : Interfaces.C.Strings.chars_ptr;
-
-      D_Res : dbus_types_h.dbus_bool_t;
-
-      --!pp off
-      VTable : aliased constant dbus_connection_h.DBusObjectPathVTable :=
-        (unregister_function => Unregister_Function'Access,
-         message_function => Message_Function'Access,
-         dbus_internal_pad1 => Pad'Access,
-         dbus_internal_pad2 => Pad'Access,
-         dbus_internal_pad3 => Pad'Access,
-         dbus_internal_pad4 => Pad'Access);
-      --!pp on
-
-      OJA : constant Object_Data_Access := new Object_Data_Type;
    begin
       Assert_Valid (O.all);
 
-      if O.Registered then
-         raise D_Bus_Error
-           with "Object " & To_String (O.Node) & " is already registered";
-      end if;
-
-      --  Set up the `Object_Data_Type`
-      OJA.Object   := Server_Object_Access (O);
-      OJA.Handlers := Handlers;
-
-      CO := Convert (O.Connection);
-
-      C_Obj_Path := Interfaces.C.Strings.New_String (To_String (O.Node));
-
-      D_Res :=
-        dbus_connection_h.dbus_connection_register_object_path
-          (connection => CO.Thin_Connection, path => C_Obj_Path,
-           vtable     => VTable'Access,
-           user_data  => Object_Data_Conversions.To_Address (OJA.all'Access));
-
-      Interfaces.C.Strings.Free (C_Obj_Path);
-
-      if D_Res /= 1 then
-         raise D_Bus_Error
-           with "Failed to register object " & To_String (O.Node);
-      end if;
-
-      O.Registered := True;
+      O.Handlers := Handlers;
+      D_Bus.Support.Message_Handlers.Register (O, Message_Function'Access);
    end Register;
-
-   ----------------
-   -- Unregister --
-   ----------------
-   procedure Unregister (O : in out Server_Object'Class) is
-      use D_Bus.Types;
-      use type dbus_types_h.dbus_bool_t;
-
-      CO         : Connection_Overlay;
-      C_Obj_Path : Interfaces.C.Strings.chars_ptr;
-
-      D_Res : dbus_types_h.dbus_bool_t;
-   begin
-      Assert_Valid (O);
-
-      if not O.Registered then
-         raise D_Bus_Error
-           with "Object " & To_String (O.Node) & " was not registered";
-      end if;
-
-      CO := Convert (O.Connection);
-
-      C_Obj_Path := Interfaces.C.Strings.New_String (To_String (O.Node));
-
-      D_Res :=
-        dbus_connection_h.dbus_connection_unregister_object_path
-          (connection => CO.Thin_Connection, path => C_Obj_Path);
-
-      Interfaces.C.Strings.Free (C_Obj_Path);
-
-      if D_Res /= 1 then
-         raise D_Bus_Error
-           with "Failed to unregister object " & To_String (O.Node);
-      end if;
-
-      O.Registered := False;
-   end Unregister;
    ----------------------------------------------------------------------------
    -------------------
    -- SERVER_OBJECT --
@@ -389,11 +257,6 @@ package body D_Bus.Support.Server is
       --  Send out the PropertiesChanged signal
       <<Try_Emit_Signal>>
 
-      --  No need to emit a signal in this case
-      if O.Properties (Iface) (Name).Emit_Behaviour = False then
-         return;
-      end if;
-
       Emit_Signal :
       declare
          use type D_Bus.Arguments.Basic.String_Type;
@@ -421,10 +284,9 @@ package body D_Bus.Support.Server is
                end;
             when Invalidates =>
                Invalidated_Array.Append (+Name);
-
-               --  Impossible to get here
             when False =>
-               null;
+               --  No need to emit a signal. Return early.
+               return;
          end case;
 
          --  sa{sv}as
@@ -456,8 +318,7 @@ package body D_Bus.Support.Server is
         and then O.Properties (Iface).Contains (Name)
       then
          --  If being called locally, bypass access check
-         if not Internal and then O.Properties (Iface) (Name).PAccess = Write
-         then
+         if O.Properties (Iface) (Name).PAccess = Write and not Internal then
             raise Property_Write_Only
               with "Property " & Iface & "." & Name & " on " &
               To_String (O.Node) & " is not readable";
@@ -511,28 +372,19 @@ package body D_Bus.Support.Server is
       Node :     D_Bus.Types.Obj_Path)
    is
    begin
-      Assert_Invalid (O);
-
-      O.Connection := Connection;
-      O.Node       := Node;
+      Root_Object (O).Create (Connection, Node);
       O.Valid      := True;
    end Create;
 
    -------------
    -- Destroy --
    -------------
-   overriding procedure Destroy (O : in out Server_Object) is
-      use D_Bus.Types;
+   procedure Destroy (O : in out Server_Object) is
    begin
       Assert_Valid (O);
 
-      if O.Registered then
-         raise D_Bus_Error
-           with "Unregister object " & To_String (O.Node) &
-           " before calling Destroy.";
-      end if;
-
-      O.Valid := False;
+      Root_Object (O).Destroy;
       O.Properties.Clear;
+      O.Handlers.Clear;
    end Destroy;
 end D_Bus.Support.Server;

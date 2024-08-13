@@ -9,8 +9,6 @@ private with Ada.Unchecked_Conversion;
 private with dbus_connection_h;
 
 package D_Bus.Support is
-   pragma Elaborate_Body (D_Bus.Support);
-
    --  A note on thread safety: This package initialises D_Bus’
    --  internal locking routine, meaning that it is safe to use
    --  these routines from multiple threads. To do so, however,
@@ -41,17 +39,23 @@ package D_Bus.Support is
 
    procedure Create
      (O    : out Root_Object; Connection : D_Bus.Connection.Connection_Type;
-      Node :     D_Bus.Types.Obj_Path) is abstract;
+      Node :     D_Bus.Types.Obj_Path);
    --  Create a new object `O` with path `Node` on Connection `Connection`
-   --  `Connection` must not be closed before `O` is destroyed.
+   --  This will reference `Connection`.
+   --
+   --  BASE IMPLEMENTATION: Call first and then set your own structures
+   --  and mark `O` as valid.
 
-   procedure Destroy (O : in out Root_Object) is abstract;
-   --  Destroy `O` and free associated structures.
-   --  The connection used by `O` will not be freed.
+   procedure Destroy (O : in out Root_Object);
+   --  Unregister and Destroy `O`, free associated structures.
+   --  This will unreference the connection associated with `O`.
+   --
+   --  BASE IMPLEMENTATION: Call when ready to mark the object invalid.
 private
    --  Types
    type Root_Object is abstract tagged limited record
       Valid      : Boolean := False;
+      Registered : Boolean := False;
       Connection : D_Bus.Connection.Connection_Type;
       Node       : D_Bus.Types.Obj_Path;
    end record;

@@ -76,17 +76,12 @@ package body Codegen.Client.Iface is
             Large_Comment ("Signals");
             for S of Pkg.Signals loop
                --  Implement org.freedesktop_DBus.Deprecated
-               Declare_Procedure (Signal_Register_Signature (S));
-               if S.Annotations.org_freedesktop_DBus_Deprecated then
-                  Use_Pragma ("Obsolescent");
-               end if;
-
-               Declare_Procedure (Signal_Unregister_Signature (S));
-               if S.Annotations.org_freedesktop_DBus_Deprecated then
-                  Use_Pragma ("Obsolescent");
-               end if;
-
                Declare_Procedure (Signal_Await_Signature (S));
+               if S.Annotations.org_freedesktop_DBus_Deprecated then
+                  Use_Pragma ("Obsolescent");
+               end if;
+
+               Declare_Procedure (Signal_Purge_Signature (S));
                if S.Annotations.org_freedesktop_DBus_Deprecated then
                   Use_Pragma ("Obsolescent");
                end if;
@@ -185,16 +180,24 @@ package body Codegen.Client.Iface is
                end loop;
 
                --  The method call itself
-               Assign
-                 ("Reply_Args",
-                  "O.Call_Blocking (Iface, """ & (+M.Name) &
-                  """, Request_Args)");
+               if M.Annotations.org_freedesktop_DBus_Method_NoReply then
+                  --  Call with no reply
+                  Call
+                    ("O.Call_No_Reply (Iface, """ & (+M.Name) &
+                     """, Request_Args)");
+               else
+                  --  Blocking call
+                  Assign
+                    ("Reply_Args",
+                     "O.Call_Blocking (Iface, """ & (+M.Name) &
+                     """, Request_Args)");
 
-               --  Check the reply signature
-               Call
-                 ("D_Bus.Support.Client.Check_Signature (Reply_Args, """ &
-                  Codegen.Types.Calculate_Reply_Signature (M.Arguments) &
-                  """)");
+                  --  Check the reply signature
+                  Call
+                    ("D_Bus.Support.Client.Check_Signature (Reply_Args, """ &
+                     Codegen.Types.Calculate_Reply_Signature (M.Arguments) &
+                     """)");
+               end if;
 
                --  Bind each out argument
                declare
@@ -218,20 +221,6 @@ package body Codegen.Client.Iface is
 
          --  Signals
          for S of Pkg.Signals loop
-            Start_Procedure (Signal_Register_Signature (S));
-            Begin_Code;
-            begin
-               Call ("O.Register_Signal (Iface, """ & (+S.Name) & """)");
-            end;
-            End_Procedure (Signal_Register_Name (S));
-
-            Start_Procedure (Signal_Unregister_Signature (S));
-            Begin_Code;
-            begin
-               Call ("O.Unregister_Signal (Iface, """ & (+S.Name) & """)");
-            end;
-            End_Procedure (Signal_Unregister_Name (S));
-
             Start_Procedure (Signal_Await_Signature (S));
             begin
                Declare_Entity
@@ -261,6 +250,13 @@ package body Codegen.Client.Iface is
                end;
             end;
             End_Procedure (Signal_Await_Name (S));
+
+            Start_Procedure (Signal_Purge_Signature (S));
+            Begin_Code;
+            begin
+               Call ("O.Purge_Signal (Iface, """ & (+S.Name) & """)");
+            end;
+            End_Procedure (Signal_Purge_Name (S));
          end loop;
 
          --  Properties

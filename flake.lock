@@ -8,11 +8,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1722646404,
-        "narHash": "sha256-JBIRvrErLz5pYzHjyEAtetaDLcUnkGIXZKUri3gEM0Q=",
+        "lastModified": 1723491035,
+        "narHash": "sha256-fAKlQ+eljIgLdOCjmzwUSFnARb5ranKvaOVIcnEeE4I=",
         "owner": "andrewathalye",
         "repo": "dbus-ada",
-        "rev": "c829123531a9e647c5884eeeb429070e884c512e",
+        "rev": "1bbeeaff4864ab54ec523bd7cfaad8a238d08ea4",
         "type": "github"
       },
       "original": {
@@ -27,18 +27,17 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1722646440,
-        "narHash": "sha256-2atcHuA1mQBHdEWSuXpLbYHDNUVdUwY0NO2zyfobYV4=",
-        "owner": "andrewathalye",
-        "repo": "nix-ada",
-        "rev": "cbcb188185afde30202d835a450cc1c786cb6702",
-        "type": "github"
+        "lastModified": 1723491077,
+        "narHash": "sha256-c2g1Z6lP89+OYrR14V3kmqXeJp3OwcLDA6dVuslfZvE=",
+        "ref": "refs/heads/master",
+        "rev": "82c340a8e33b9564e5741628410893f4cd9b0028",
+        "revCount": 39,
+        "type": "git",
+        "url": "file:///home/andrew/src/ada/nix-ada/"
       },
       "original": {
-        "owner": "andrewathalye",
-        "ref": "v1.5",
-        "repo": "nix-ada",
-        "type": "github"
+        "type": "git",
+        "url": "file:///home/andrew/src/ada/nix-ada/"
       }
     },
     "nixpkgs": {

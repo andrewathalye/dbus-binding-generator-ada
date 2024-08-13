@@ -1,6 +1,6 @@
 {
-   inputs.nix-ada.url = "github:andrewathalye/nix-ada/v1.5";
-   #inputs.nix-ada.url = "git+file:///home/andrew/src/ada/nix-ada/";
+   #inputs.nix-ada.url = "github:andrewathalye/nix-ada/v1.5";
+   inputs.nix-ada.url = "git+file:///home/andrew/src/ada/nix-ada/";
 
    outputs = { self, nix-ada }:
    let

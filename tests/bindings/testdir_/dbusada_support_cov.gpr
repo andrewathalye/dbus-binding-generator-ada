@@ -1,0 +1,10 @@
+library project DBusAda_Support_Cov extends "../../../supportlib/dbusada_support.gpr" is
+   for Object_Dir use "obj";
+
+   for Library_Name use "dbusada_support_cov";
+   for Library_Dir use "lib";
+--   for Externally_Built use "true";
+
+   package Compiler renames DBusAda_Support.Compiler;
+   package Binder renames DBusAda_Support.Binder;
+end DBusAda_Support_Cov;

@@ -20,6 +20,11 @@ Development
 
 This provides several debugging and development tools as well.
 
+TODO
+----
+Generate a list of objects `Generated_Objects`. Rename the server package to `Generated_Registration`
+These objects are canonical and defined in the XML spec along with their interfaces.
+
 Limitations
 -----------
 On POSIX systems, the number of file descriptors that a process can have open at once
@@ -44,14 +49,13 @@ Dev Tools
 
 Supported Annotations
 ---------------------
-| Annotation                                         | Values                            | Meaning                                                                         |
-| :------------------------------------------------- | :-------------------------------- | :------------------------------------------------------------------------------ |
-| `org.freedesktop.DBus.Deprecated`                  | `true, false`                     | Emits `pragma Obsolescent` for the entity in question.                          |
-| `org.freedesktop.DBus.Method.NoReply`              | `true, false`                     | Suppresses producing or waiting for a reply for a method call\*                 |
-| `org.freedesktop.DBus.Property.EmitsChangedSignal` | `true, invalidates, const, false` | Controls whether `PropertiesChanged` is emitted when a property is modified\*\* |
+| Annotation                                         | Values                            | Meaning                                                                       |
+| :------------------------------------------------- | :-------------------------------- | :---------------------------------------------------------------------------- |
+| `org.freedesktop.DBus.Deprecated`                  | `true, false`                     | Emits `pragma Obsolescent` for the entity in question.                        |
+| `org.freedesktop.DBus.Method.NoReply`              | `true, false`                     | Suppresses producing or waiting for a reply for a method call                 |
+| `org.freedesktop.DBus.Property.EmitsChangedSignal` | `true, invalidates, const, false` | Controls whether `PropertiesChanged` is emitted when a property is modified\* |
 
-\* This is not actually implemented directly by the binder, but supported nonetheless.
-\*\* If a property with `invalidates` is modified, `PropertiesChanged` signals will not contain the new value. `const` and `false` are treated identically.
+\* If a property with `invalidates` is modified, `PropertiesChanged` signals will not contain the new value. `const` and `false` are treated identically.
 
 Licence
 -------

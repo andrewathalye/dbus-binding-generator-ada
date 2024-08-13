@@ -1,10 +1,10 @@
-pragma Ada_2005;
+pragma Ada_2012;
 
 with D_Bus.Arguments.Containers;
 
 private with Ada.Strings.Unbounded;
-private with Ada.Strings.Hash;
-private with Ada.Containers.Indefinite_Hashed_Maps;
+private with D_Bus.Messages;
+private with D_Bus.Support.Message_Handlers;
 
 package D_Bus.Support.Client is
    ----------
@@ -36,26 +36,35 @@ package D_Bus.Support.Client is
    -------------
    function Call_Blocking
      (O    : Client_Interface; Iface : String; Method : String;
-      Args : D_Bus.Arguments.Argument_List_Type)
+      Args : D_Bus.Arguments.Argument_List_Type :=
+        D_Bus.Arguments.Empty_Argument_List)
       return D_Bus.Arguments.Argument_List_Type is abstract;
    --  Same as D_Bus.Connection.Call_Blocking but object-oriented
+
+   procedure Call_No_Reply
+     (O    : Client_Interface; Iface : String; Method : String;
+      Args : D_Bus.Arguments.Argument_List_Type :=
+        D_Bus.Arguments.Empty_Argument_List) is abstract;
+   --  Same as D_Bus.Connection.Call_No_Reply but object-oriented
 
    -------------
    -- Signals --
    -------------
-   procedure Register_Signal
-     (O : in out Client_Interface; Iface : String; Name : String) is abstract;
-   --  Register a signal and store the registration data internally.
-
-   procedure Unregister_Signal
-     (O : in out Client_Interface; Iface : String; Name : String) is abstract;
-   --  Unregister a signal that was stored internally.
-
    function Await_Signal
-     (O : Client_Interface; Iface : String; Name : String)
+     (O : in out Client_Interface; Iface : String; Name : String)
       return D_Bus.Arguments.Argument_List_Type is abstract;
-   --  Return the message for a registered signal with
-   --  interface `Iface` and name `Name`.
+   --  Return the message for a signal on `O` with interface `Iface`
+   --   and name `Name`.
+   --
+   --  `O` must have been registered first before waiting for signals.
+   --
+   --  This blocks until a matching signal is received.
+   --  TODO add a timeout option
+
+   procedure Purge_Signal
+     (O : in out Client_Interface; Iface : String; Name : String) is abstract;
+   --  Purge the cache of signals from object `O`, on interface
+   --  `Iface`, named `Name`.
 
    ----------------
    -- Properties --
@@ -80,20 +89,23 @@ package D_Bus.Support.Client is
    --  The progenitor type of all D_Bus client objects.
    --  Also see `Client_Interface` and `Root_Object` for more documentation.
 
-   overriding procedure Register_Signal
-     (O : in out Client_Object; Iface : String; Name : String);
-
-   overriding procedure Unregister_Signal
-     (O : in out Client_Object; Iface : String; Name : String);
-
    overriding function Await_Signal
-     (O : Client_Object; Iface : String; Name : String)
+     (O : in out Client_Object; Iface : String; Name : String)
       return D_Bus.Arguments.Argument_List_Type;
+
+   overriding procedure Purge_Signal
+     (O : in out Client_Object; Iface : String; Name : String);
 
    overriding function Call_Blocking
      (O    : Client_Object; Iface : String; Method : String;
-      Args : D_Bus.Arguments.Argument_List_Type)
+      Args : D_Bus.Arguments.Argument_List_Type :=
+        D_Bus.Arguments.Empty_Argument_List)
       return D_Bus.Arguments.Argument_List_Type;
+
+   procedure Call_No_Reply
+     (O    : Client_Object; Iface : String; Method : String;
+      Args : D_Bus.Arguments.Argument_List_Type :=
+        D_Bus.Arguments.Empty_Argument_List);
 
    procedure Set_Property
      (O     : Client_Object; Iface : String; Name : String;
@@ -107,9 +119,14 @@ package D_Bus.Support.Client is
    -- Constructors and Destructors --
    ----------------------------------
    overriding procedure Create
-     (O    : out Client_Object; Connection : D_Bus.Connection.Connection_Type;
-      Node :     D_Bus.Types.Obj_Path);
+     (O          : out Client_Object;
+      Connection : D_Bus.Connection.Connection_Type;
+      Node       : D_Bus.Types.Obj_Path);
    --  See `D_Bus.Support.Create`
+
+   procedure Register (O : access Client_Object'Class);
+   --  Register `O` on its connection and allow it to receive signals.
+   --  This is optional for any object which does not need to receive signals.
 
    function Destination (O : Client_Object) return String;
    --  Get the destination associated with `O`. This will return
@@ -122,16 +139,12 @@ package D_Bus.Support.Client is
    overriding procedure Destroy (O : in out Client_Object);
    --  See `D_Bus.Support.Destroy`
    --
-   --  Additionally, a `Client_Object` may not be destroyed if any signals
-   --  are registered on it. These must first be unregistered.
+   --  This also clears the signal cache associated with `O`
 private
-   --  Signal_Name => Signal_Match_Rule
-   package Signal_Maps is new Ada.Containers.Indefinite_Hashed_Maps
-     (String, String, Ada.Strings.Hash, "=");
-
    type Client_Object is
    limited new Root_Object and Client_Interface with record
       Destination : Ada.Strings.Unbounded.Unbounded_String;
-      Signals     : Signal_Maps.Map;
+      Messages    : D_Bus.Support.Message_Handlers.Message_Box_Type;
+      Last_Signal : D_Bus.Messages.Message_Type := D_Bus.Messages.Null_Message;
    end record;
 end D_Bus.Support.Client;

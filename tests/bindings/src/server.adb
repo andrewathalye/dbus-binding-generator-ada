@@ -15,6 +15,7 @@ with D_Bus.Types; use D_Bus.Types;
 with D_Bus.Support.Server; use D_Bus.Support.Server;
 
 --  Interfaces
+with com_example_Control.Server;
 with com_example_Duplicate.Server;
 with com_example_ClientServer.Server;
 with com_example_Interior.Server;
@@ -30,6 +31,7 @@ procedure Server (Connection : D_Bus.Connection.Connection_Type) is
    --  Types
    type Root is
    new D_Bus.Support.Server.Server_Object and
+     com_example_Control.Server.Child_Interface and
      com_example_Duplicate.Server.Child_Interface and
      com_example_ClientServer.Server.Child_Interface with null record;
 
@@ -188,23 +190,13 @@ begin
    Register (InteriorWithEmpty_Obj'Unchecked_Access);
    Register (Empty_Obj'Unchecked_Access);
 
-   --  Set specified properties
-   Root_Obj.Set_TestPropertyReadOnly (+"Read Only");
-   Root_Obj.Set_TestPropertyWriteOnly (+"Write Only");
-   Root_Obj.Set_TestProperty (+"Read Write");
-
    --  Main loop
-   D_Bus.Connection.Request_Name (Connection, "test.Service");
+   D_Bus.Connection.Request_Name (Connection, "test.Server");
    Root_Obj.Ready;
    D_Bus.G_Main.Start;
-   D_Bus.Connection.Release_Name (Connection, "test.Service");
+   D_Bus.Connection.Release_Name (Connection, "test.Server");
 
    --  Clean up
-   Interior_Obj.Unregister;
-   InteriorWithEmpty_Obj.Unregister;
-   Empty_Obj.Unregister;
-   Root_Obj.Unregister;
-
    Interior_Obj.Destroy;
    InteriorWithEmpty_Obj.Destroy;
    Empty_Obj.Destroy;

@@ -170,36 +170,6 @@ package body Codegen.Output.Subprograms is
         (if Args'Length = 0 then "" else "; " & Args) & ")";
    end Signal_Signature;
 
-   --------------------------
-   -- Signal_Register_Name --
-   --------------------------
-   function Signal_Register_Name (S : Parsing.Signal_Type) return String is
-   begin
-      return "Register_" & Signal_Name (S);
-   end Signal_Register_Name;
-
-   -------------------------------
-   -- Signal_Register_Signature --
-   -------------------------------
-   function Signal_Register_Signature
-     (S : Parsing.Signal_Type) return String is
-     (Signal_Register_Name (S) & "(O : in out Child_Interface'Class)");
-
-   ----------------------------
-   -- Signal_Unregister_Name --
-   ----------------------------
-   function Signal_Unregister_Name (S : Parsing.Signal_Type) return String is
-   begin
-      return "Unregister_" & Signal_Name (S);
-   end Signal_Unregister_Name;
-
-   ---------------------------------
-   -- Signal_Unregister_Signature --
-   ---------------------------------
-   function Signal_Unregister_Signature
-     (S : Parsing.Signal_Type) return String is
-     (Signal_Unregister_Name (S) & " (O : in out Child_Interface'Class)");
-
    -----------------------
    -- Signal_Await_Name --
    -----------------------
@@ -215,9 +185,25 @@ package body Codegen.Output.Subprograms is
       Args : constant String := Get_Arguments (S.Arguments);
    begin
       return
-        Signal_Await_Name (S) & " (O : Child_Interface'Class" &
+        Signal_Await_Name (S) & " (O : in out Child_Interface'Class" &
         (if Args'Length > 0 then "; " & Args else "") & ")";
    end Signal_Await_Signature;
+
+   -----------------------
+   -- Signal_Purge_Name --
+   -----------------------
+   function Signal_Purge_Name (S : Parsing.Signal_Type) return String is
+   begin
+      return "Purge_" & Signal_Name (S);
+   end Signal_Purge_Name;
+
+   ----------------------------
+   -- Signal_Purge_Signature --
+   ----------------------------
+   function Signal_Purge_Signature (S : Parsing.Signal_Type) return String is
+   begin
+      return Signal_Purge_Name (S) & " (O : in out Child_Interface'Class)";
+   end Signal_Purge_Signature;
 
    ------------------------
    -- Property_Read_Name --

@@ -13,6 +13,7 @@ nix-ada.pkgs.mkShell {
       nix-ada.pkgs.lcov
       nix-ada.pkgs.valgrind
       nix-ada.pkgs.rr
+      nix-ada.gnatcoverage
    ];
       
    buildInputs = [

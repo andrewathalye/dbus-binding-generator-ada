@@ -1,0 +1,16 @@
+with "dbusada_support_cov";
+
+project Bindings_Cov extends "../bindings.gpr" is
+   for Exec_Dir use "bin";
+   for Object_Dir use "obj";
+
+   package Compiler renames Bindings.Compiler;
+
+   package Binder renames Bindings.Binder;
+
+   package Linker renames Bindings.Linker;
+
+   package Coverage is
+      for Units use ();
+   end Coverage;
+end Bindings_Cov;

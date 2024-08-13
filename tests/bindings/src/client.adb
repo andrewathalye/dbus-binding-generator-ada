@@ -15,8 +15,9 @@ with D_Bus.Types;                use D_Bus.Types;
 with D_Bus.Support.Client; use D_Bus.Support.Client;
 
 --  Interfaces
-with com_example_ClientServer.Client;   use com_example_ClientServer.Client;
-with com_example_Interior.Client;    use com_example_Interior.Client;
+with com_example_Control.Client;
+with com_example_ClientServer.Client;
+with com_example_Interior.Client;
 with org_freedesktop_DBus_Properties.Client;
 
 --  Generated
@@ -29,6 +30,7 @@ procedure Client (Connection : D_Bus.Connection.Connection_Type) is
    type Root is
    new D_Bus.Support.Client.Client_Object
      and org_freedesktop_DBus_Properties.Client.Child_Interface
+     and com_example_Control.Client.Child_Interface
      and com_example_ClientServer.Client.Child_Interface with null record;
 
    type Interior is
@@ -36,13 +38,15 @@ procedure Client (Connection : D_Bus.Connection.Connection_Type) is
      com_example_Interior.Client.Child_Interface with null record;
 
    --  Objects
-   Root_Obj     : Root;
+   Root_Obj     : aliased Root;
    Interior_Obj : Interior;
 begin
    --  Invalid object (Assert_Valid)
    Put_Line ("Use invalid object");
    begin
+      pragma Warnings (Off);
       Put_Line (To_String (Root_Obj.Node));
+      pragma Warnings (On);
       raise Program_Error;
    exception
       when D_Bus.D_Bus_Error => null;
@@ -50,6 +54,7 @@ begin
 
    --  Create objects
    Root_Obj.Create (Connection, +"/");
+   Root_Obj.Register;
    Interior_Obj.Create (Connection, +"/Interior");
 
    --  Call with no destination
@@ -62,8 +67,8 @@ begin
    end;
 
    --  Connect objects
-   Root_Obj.Set_Destination ("test.Service");
-   Interior_Obj.Set_Destination ("test.Service");
+   Root_Obj.Set_Destination ("test.Server");
+   Interior_Obj.Set_Destination ("test.Server");
 
    --  Recreate valid object (Assert_Invalid)
    begin
@@ -88,35 +93,31 @@ begin
       Connection := Root_Obj.Connection;
    end;
 
-   --  Check_Signature (artificial since this wouldn’t normally be called)
-   Put_Line ("Check_Signature (Client)");
-   begin
-      Check_Signature (D_Bus.Arguments.Empty_Argument_List, "av");
-      raise Program_Error;
-   exception
-      when Invalid_Signature => null;
-   end;
-
-   --  Await unregistered signal
-   Put_Line ("Await unregistered");
-   begin
-      Root_Obj.Await_Ready;
-      raise Program_Error;
-   exception
-      when D_Bus.D_Bus_Error => null;
-   end;
-
-   Put_Line ("com.example.ClientServer @ /");
-
    --  Wait for server to go up
-   Root_Obj.Register_Ready;
    begin
       Root_Obj.Ping;
    exception
       when D_Bus.D_Bus_Error =>
          Root_Obj.Await_Ready;
    end;
-   Root_Obj.Unregister_Ready;
+
+   --  Call on invalid interface
+   Put_Line ("Call on invalid interface");
+   Root_Obj.Call_No_Reply
+     (Iface  => "com.example.InvalidInterface",
+      Method => "Invalid");
+
+   --  Call invalid method
+   Put_Line ("Call invalid method");
+   Root_Obj.Call_No_Reply
+     (Iface  => "com.example.ClientServer",
+      Method => "Invalid");
+
+   --  Call with invalid arguments
+   Put_Line ("Call with invalid arguments");
+   Root_Obj.Call_No_Reply
+     (Iface => "com.example.ClientServer",
+      Method => "TestBasicTypes");
 
    --  TestBasicTypes
    Put_Line ("TestBasicTypes");
@@ -215,101 +216,9 @@ begin
    Put_Line ("in");
    Root_Obj.R_in (+"Message");
 
-   --  Properties
-   Put_Line ("Properties (org.freedesktop.DBus.Properties) @ /");
-   declare
-      Buf : Unbounded_String;
-
-      Variant_String : Variant_Type := Create (+"Hello");
-      Variant_Int : constant Variant_Type := Create (+D_Bus.Signed_32'(1));
-      All_Props : Dict_sv;
-   begin
-      --  Correct usage using bindings
-      Buf := Root_Obj.TestPropertyReadOnly;
-      Root_Obj.Set_TestPropertyWriteOnly (Buf);
-      Buf := Root_Obj.TestProperty;
-      Root_Obj.Set_TestProperty (Buf);
-
-      --  Raw interface
-      Put_Line ("Get invalid iface");
-      begin
-         Root_Obj.Set_Property
-           ("invalid.Interface", "InvalidProperty", Variant_String);
-         raise Program_Error;
-      exception
-         when D_Bus.D_Bus_Error => null;
-      end;
-
-      Put_Line ("Set invalid iface");
-      begin
-         Root_Obj.Get_Property
-           ("invalid.Interface", "InvalidProperty", Variant_String);
-         raise Program_Error;
-      exception
-         when D_Bus.D_Bus_Error => null;
-      end;
-
-      Put_Line ("Get all invalid iface (not erroneous)");
-      Root_Obj.GetAll
-        (+"invalid.Interface", All_Props);
-
-      Put_Line ("Get all");
-      Root_Obj.GetAll
-        (+"com.example.ClientServer", All_Props);
-
-      Put_Line ("Set invalid");
-      begin
-         Root_Obj.Set_Property
-           ("com.example.ClientServer", "InvalidProperty", Variant_String);
-         raise Program_Error;
-      exception
-         when D_Bus.D_Bus_Error => null;
-      end;
-
-      Put_Line ("Get invalid");
-      begin
-         Root_Obj.Get_Property
-           ("com.example.ClientServer", "InvalidProperty", Variant_String);
-         raise Program_Error;
-      exception
-         when D_Bus.D_Bus_Error => null;
-      end;
-
-      Put_Line ("Set readonly");
-      begin
-         Root_Obj.Set_Property
-           ("com.example.ClientServer",
-            "TestPropertyReadOnly", Variant_String);
-         raise Program_Error;
-      exception
-         when D_Bus.D_Bus_Error => null;
-      end;
-
-      Put_Line ("Get writeonly");
-      begin
-         Root_Obj.Get_Property
-           ("com.example.ClientServer",
-            "TestPropertyWriteOnly", Variant_String);
-         raise Program_Error;
-      exception
-         when D_Bus.D_Bus_Error => null;
-      end;
-
-      Put_Line ("Set with invalid variant type");
-      begin
-         Root_Obj.Set_Property
-           ("com.example.ClientServer", "TestPropertyWriteOnly", Variant_Int);
-         raise Program_Error;
-      exception
-         when D_Bus.D_Bus_Error => null;
-      end;
-   end;
-
    --  Interior.Method
    Put_Line ("com.example.Interior.Method @ /Interior");
    Interior_Obj.Method;
-
-   Put_Line ("com.example.ClientServer @ /");
 
    --  Quit
    Put_Line ("Quit");

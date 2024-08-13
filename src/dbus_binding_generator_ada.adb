@@ -237,23 +237,46 @@ begin
    declare
       procedure Recurse_Node (Node : in out Parsing.Node_Type);
       procedure Recurse_Node (Node : in out Parsing.Node_Type) is
+         use type Parsing.DBus_Direction;
+
          Has_Properties_Interface : Boolean := False;
       begin
          for Child_Node of Node.Child_Nodes loop
             Recurse_Node (Child_Node.all);
          end loop;
 
-         --  Search for a properties interface
+         Check_Interfaces :
          for I of Node.Interfaces loop
+
+            --  If the node specifies a properties interface,
+            --  record this.
             if +I.Name = Constants.Properties_Interface then
                Has_Properties_Interface := True;
-               exit;
+               exit Check_Interfaces;
             end if;
-         end loop;
+
+            --  Ensure methods with NoReply set do not have
+            --  any out arguments. This would be semantically invalid.
+            Check_NoReply_Methods :
+            for Method of I.Methods loop
+               if I.Annotations.org_freedesktop_DBus_Method_NoReply then
+                  Check_Out_Arguments :
+                  for Argument of Method.Arguments loop
+                     if Argument.Direction = Parsing.DOut then
+                        Error_Message
+                          ("CHECK ERROR: Method " & (+Method.Name) &
+                           " on interface " & (+I.Name) & " does not " &
+                           " expect replies but has out arguments.");
+                     end if;
+                  end loop Check_Out_Arguments;
+               end if;
+            end loop Check_NoReply_Methods;
+         end loop Check_Interfaces;
 
          --  Ensure no interface has properties defined if
          --  there is no properties interface
          if not Has_Properties_Interface then
+            Assert_No_Properties :
             for I of Node.Interfaces loop
                if not I.Properties.Is_Empty then
                   Error_Message
@@ -261,7 +284,7 @@ begin
                      " has properties, but its parent node" &
                      " does not implement " & Constants.Properties_Interface);
                end if;
-            end loop;
+            end loop Assert_No_Properties;
          end if;
       end Recurse_Node;
    begin

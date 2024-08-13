@@ -1,0 +1,4 @@
+<node name="/">
+   <interface name="com.example.ClientServer">
+   </interface>
+</node>

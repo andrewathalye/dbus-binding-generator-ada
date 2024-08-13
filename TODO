@@ -1,0 +1,7 @@
+Auto register for Client
+Server register should be in D_Bus.Support.Server
+
+Client register via Add_Match and Remove_Match
+Server register via Registered Objects
+
+(status quo with less memory leaks and better ergonomics)
